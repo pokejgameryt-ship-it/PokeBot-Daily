@@ -493,11 +493,26 @@ class PkquestModal(discord.ui.Modal, title="🎯 Pokéconcurso - Crear Pregunta"
         await interaction.response.send_message(embed=embed)
 
 
+class PkquestButton(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+    
+    @discord.ui.button(label="🎯 Crear Pregunta", style=discord.ButtonStyle.green, custom_id="pkquest_button")
+    async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = PkquestModal()
+        await interaction.response.send_modal(modal)
+
+
 @bot.command(name="pkquest")
 async def pkquest_command(ctx: commands.Context):
     """Abre el formulario para crear una pregunta de concurso"""
-    modal = PkquestModal()
-    await ctx.send_modal(modal)
+    view = PkquestButton()
+    embed = discord.Embed(
+        title="🎯 Pokéconcurso",
+        description="Haz clic en el botón de abajo para crear una pregunta.",
+        color=discord.Color.gold(),
+    )
+    await ctx.send(embed=embed, view=view)
 
 
 @bot.command(name="ayuda-pkquest")
