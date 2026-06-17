@@ -54,6 +54,39 @@ async def on_member_join(member):
         await channel.send(embed=embed)
 
 
+@bot.command(name="dar-miembros")
+@commands.has_permissions(administrator=True)
+async def dar_miembros_command(ctx: commands.Context):
+    """Asigna el rol 'Miembro' a todos los miembros que no lo tengan (solo admins)"""
+    role = discord.utils.get(ctx.guild.roles, name="Miembro")
+    if not role:
+        await ctx.send("❌ No encontré el rol 'Miembro'. Créalo primero.")
+        return
+    
+    embed = discord.Embed(
+        title="⏳ Asignando rol Miembro...",
+        description="Esto puede tardar unos segundos.",
+        color=discord.Color.yellow(),
+    )
+    msg = await ctx.send(embed=embed)
+    
+    count = 0
+    for member in ctx.guild.members:
+        if role not in member.roles and not member.bot:
+            try:
+                await member.add_roles(role)
+                count += 1
+            except:
+                pass
+    
+    embed = discord.Embed(
+        title="✅ Rol Miembro Asignado",
+        description=f"Se asignó el rol **Miembro** a **{count}** miembros.",
+        color=discord.Color.green(),
+    )
+    await msg.edit(embed=embed)
+
+
 @tasks.loop(hours=24)
 async def daily_trivia_task():
     now = datetime.now()
