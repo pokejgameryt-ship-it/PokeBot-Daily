@@ -58,9 +58,9 @@ async def on_member_join(member):
 @commands.has_permissions(administrator=True)
 async def dar_miembros_command(ctx: commands.Context):
     """Asigna el rol 'Miembro' a todos los miembros que no lo tengan (solo admins)"""
-    role = discord.utils.get(ctx.guild.roles, name="Miembro")
+    role = ctx.guild.get_role(1516763647765123094)
     if not role:
-        await ctx.send("❌ No encontré el rol 'Miembro'. Créalo primero.")
+        await ctx.send("❌ No encontré el rol 'Miembro'.")
         return
     
     embed = discord.Embed(
