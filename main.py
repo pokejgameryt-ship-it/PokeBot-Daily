@@ -346,8 +346,8 @@ async def comandos_command(ctx: commands.Context):
         inline=False,
     )
     embed.add_field(
-        name="`!pkquest [pregunta] | [op1] | [op2] | [op3] | [op4] | [correcta]`",
-        value="Crea una pregunta de concurso con 4 opciones (1-4 es la respuesta correcta)",
+        name="`!pkquest`",
+        value="Abre un formulario para crear una pregunta de concurso",
         inline=False,
     )
     embed.add_field(
@@ -420,87 +420,101 @@ async def help_command(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
-@bot.command(name="pkquest")
-async def pkquest_command(ctx: commands.Context, *, texto: str):
-    """
-    Crea una pregunta de concurso Pokémon.
-    Formato: !pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto
-    
-    Ejemplo: !pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3
-    """
-    parts = [p.strip() for p in texto.split("|")]
-    
-    if len(parts) != 6:
-        embed = discord.Embed(
-            title="❌ Formato incorrecto",
-            description="Usa así:\n`!pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto`",
-            color=discord.Color.red(),
-        )
-        embed.add_field(
-            name="Ejemplo",
-            value="`!pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3`",
-            inline=False,
-        )
-        await ctx.send(embed=embed)
-        return
-    
-    pregunta = parts[0]
-    opciones = [parts[1], parts[2], parts[3], parts[4]]
-    
-    try:
-        correcta = int(parts[5])
-        if correcta < 1 or correcta > 4:
-            raise ValueError
-    except ValueError:
-        embed = discord.Embed(
-            title="❌ Número de respuesta inválido",
-            description="El número correcto debe ser 1, 2, 3 o 4.",
-            color=discord.Color.red(),
-        )
-        await ctx.send(embed=embed)
-        return
-    
-    emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
-    
-    embed = discord.Embed(
-        title="🎯 POKÉCONCURSO",
-        description=pregunta,
-        color=discord.Color.gold(),
+class PkquestModal(discord.ui.Modal, title="🎯 Pokéconcurso - Crear Pregunta"):
+    pregunta = discord.ui.TextInput(
+        label="📝 Pregunta",
+        placeholder="Escribe tu pregunta aquí...",
+        style=discord.TextStyle.paragraph,
+        required=True,
+        max_length=200,
     )
-    
-    for i, op in enumerate(opciones):
-        marker = " ✅" if i + 1 == correcta else ""
+    opcion_correcta = discord.ui.TextInput(
+        label="✅ Opción Correcta (en verde)",
+        placeholder="Escribe la respuesta correcta...",
+        style=discord.TextStyle.short,
+        required=True,
+        max_length=100,
+    )
+    opcion_incorrecta1 = discord.ui.TextInput(
+        label="❌ Opción Incorrecta 1",
+        placeholder="Escribe una opción incorrecta...",
+        style=discord.TextStyle.short,
+        required=True,
+        max_length=100,
+    )
+    opcion_incorrecta2 = discord.ui.TextInput(
+        label="❌ Opción Incorrecta 2",
+        placeholder="Escribe una opción incorrecta...",
+        style=discord.TextStyle.short,
+        required=True,
+        max_length=100,
+    )
+    opcion_incorrecta3 = discord.ui.TextInput(
+        label="❌ Opción Incorrecta 3",
+        placeholder="Escribe una opción incorrecta...",
+        style=discord.TextStyle.short,
+        required=True,
+        max_length=100,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🎯 POKÉCONCURSO",
+            description=f"**{self.pregunta}**",
+            color=discord.Color.gold(),
+        )
+        
         embed.add_field(
-            name=f"{emojis[i]} Opción {i+1}",
-            value=f"||{op}||{marker}",
+            name="✅ Respuesta Correcta",
+            value=f"```diff\n+ {self.opcion_correcta}\n```",
             inline=False,
         )
-    
-    embed.set_footer(text=f"Creado por {ctx.author.display_name} | Respuesta: ||{opciones[correcta-1]}||")
-    
-    await ctx.send(embed=embed)
+        
+        embed.add_field(
+            name="❌ Opción Incorrecta 1",
+            value=f"```diff\n- {self.opcion_incorrecta1}\n```",
+            inline=False,
+        )
+        
+        embed.add_field(
+            name="❌ Opción Incorrecta 2",
+            value=f"```diff\n- {self.opcion_incorrecta2}\n```",
+            inline=False,
+        )
+        
+        embed.add_field(
+            name="❌ Opción Incorrecta 3",
+            value=f"```diff\n- {self.opcion_incorrecta3}\n```",
+            inline=False,
+        )
+        
+        embed.set_footer(text=f"Creado por {interaction.user.display_name}")
+        
+        await interaction.response.send_message(embed=embed)
+
+
+@bot.command(name="pkquest")
+async def pkquest_command(ctx: commands.Context):
+    """Abre el formulario para crear una pregunta de concurso"""
+    modal = PkquestModal()
+    await ctx.send_modal(modal)
 
 
 @bot.command(name="ayuda-pkquest")
 async def ayuda_pkquest_command(ctx: commands.Context):
     embed = discord.Embed(
         title="🎯 Cómo crear preguntas de Pokéconcurso",
-        description="Usa el comando `!pkquest` para crear una pregunta.",
+        description="Usa el comando `!pkquest` y se abrirá un formulario.",
         color=discord.Color.gold(),
     )
     embed.add_field(
-        name="Formato",
-        value="`!pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto`",
+        name="Cómo usar",
+        value="Escribe `!pkquest` y se abrirá un modal con 5 campos:\n1. La pregunta\n2. La respuesta correcta (sale en verde)\n3. 3 opciones incorrectas (salen en rojo)",
         inline=False,
     )
     embed.add_field(
-        name="Ejemplo",
-        value="`!pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3`",
-        inline=False,
-    )
-    embed.add_field(
-        name="Notas",
-        value="• Separa todo con `|`\n• El número correcto es 1, 2, 3 o 4\n• La respuesta aparece oculta con spoiler\n• Solo puedes crear 1 pregunta por mensaje",
+        name="Resultado",
+        value="El bot publicará la pregunta con la respuesta correcta en verde y las incorrectas en rojo.",
         inline=False,
     )
     await ctx.send(embed=embed)
