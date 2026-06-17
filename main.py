@@ -340,6 +340,22 @@ async def comandos_command(ctx: commands.Context):
         inline=False,
     )
 
+    embed.add_field(
+        name="━━━━━━ 🎯 POKÉCONCURSO ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!pkquest [pregunta] | [op1] | [op2] | [op3] | [op4] | [correcta]`",
+        value="Crea una pregunta de concurso con 4 opciones (1-4 es la respuesta correcta)",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!ayuda-pkquest`",
+        value="Muestra cómo crear preguntas de concurso",
+        inline=False,
+    )
+
     embed.set_footer(text="💡 Tip: Haz check-in todos los días para subir de rango")
     await ctx.send(embed=embed)
 
@@ -399,6 +415,92 @@ async def help_command(ctx: commands.Context):
     embed.add_field(
         name="!crear-reto [título] [desc] [puntos] [días]",
         value="Crea un nuevo reto (solo admins)",
+        inline=False,
+    )
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="pkquest")
+async def pkquest_command(ctx: commands.Context, *, texto: str):
+    """
+    Crea una pregunta de concurso Pokémon.
+    Formato: !pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto
+    
+    Ejemplo: !pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3
+    """
+    parts = [p.strip() for p in texto.split("|")]
+    
+    if len(parts) != 6:
+        embed = discord.Embed(
+            title="❌ Formato incorrecto",
+            description="Usa así:\n`!pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto`",
+            color=discord.Color.red(),
+        )
+        embed.add_field(
+            name="Ejemplo",
+            value="`!pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3`",
+            inline=False,
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    pregunta = parts[0]
+    opciones = [parts[1], parts[2], parts[3], parts[4]]
+    
+    try:
+        correcta = int(parts[5])
+        if correcta < 1 or correcta > 4:
+            raise ValueError
+    except ValueError:
+        embed = discord.Embed(
+            title="❌ Número de respuesta inválido",
+            description="El número correcto debe ser 1, 2, 3 o 4.",
+            color=discord.Color.red(),
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+    
+    embed = discord.Embed(
+        title="🎯 POKÉCONCURSO",
+        description=pregunta,
+        color=discord.Color.gold(),
+    )
+    
+    for i, op in enumerate(opciones):
+        marker = " ✅" if i + 1 == correcta else ""
+        embed.add_field(
+            name=f"{emojis[i]} Opción {i+1}",
+            value=f"||{op}||{marker}",
+            inline=False,
+        )
+    
+    embed.set_footer(text=f"Creado por {ctx.author.display_name} | Respuesta: ||{opciones[correcta-1]}||")
+    
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="ayuda-pkquest")
+async def ayuda_pkquest_command(ctx: commands.Context):
+    embed = discord.Embed(
+        title="🎯 Cómo crear preguntas de Pokéconcurso",
+        description="Usa el comando `!pkquest` para crear una pregunta.",
+        color=discord.Color.gold(),
+    )
+    embed.add_field(
+        name="Formato",
+        value="`!pkquest Pregunta | Opción 1 | Opción 2 | Opción 3 | Opción 4 | número_correcto`",
+        inline=False,
+    )
+    embed.add_field(
+        name="Ejemplo",
+        value="`!pkquest ¿Cuál es el tipo de Pikachu? | Fuego | Agua | Eléctrico | Planta | 3`",
+        inline=False,
+    )
+    embed.add_field(
+        name="Notas",
+        value="• Separa todo con `|`\n• El número correcto es 1, 2, 3 o 4\n• La respuesta aparece oculta con spoiler\n• Solo puedes crear 1 pregunta por mensaje",
         inline=False,
     )
     await ctx.send(embed=embed)
