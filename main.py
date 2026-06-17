@@ -247,6 +247,103 @@ async def ranking_trivia_command(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
+@bot.command(name="comandos")
+async def comandos_command(ctx: commands.Context):
+    embed = discord.Embed(
+        title="🎮 Comandos de PokéBot Daily",
+        description="Usa estos comandos en este canal",
+        color=discord.Color.blue(),
+    )
+
+    embed.add_field(
+        name="━━━━━━ 🧠 TRIVIA ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!trivia`",
+        value="Responde la trivia Pokémon del día y gana 10 puntos por acierto",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!ranking-trivia`",
+        value="Muestra quién tiene más aciertos en trivia",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="━━━━━━ 🔥 RACHA ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!checkin`",
+        value="Check-in diario. Mantén tu racha y gana 5 puntos cada día",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!ranking-racha`",
+        value="Muestra quién lleva más días consecutivos de check-in",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="━━━━━━ 🏆 RANKINGS ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!top`",
+        value="Top 10 miembros más activos por puntos totales",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!leaderboard`",
+        value="Ranking general con puntos, trivia y retos",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="━━━━━━ 📊 PERFIL ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!profile`",
+        value="Muestra tu perfil: puntos, trivia, racha y retos",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!profile @usuario`",
+        value="Muestra el perfil de otro miembro",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="━━━━━━ 🎯 RETOS ━━━━━━",
+        value="━━━━━━━━━━━━━━━━━━━━━━━",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!reto`",
+        value="Muestra el reto semanal activo y quiénes lo completaron",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!completar-reto`",
+        value="Marca el reto como completado y gana 50 puntos",
+        inline=False,
+    )
+    embed.add_field(
+        name="`!crear-reto [título] [desc] [puntos] [días]`",
+        value="Crea un nuevo reto semanal (solo admins)",
+        inline=False,
+    )
+
+    embed.set_footer(text="💡 Tip: Haz check-in todos los días para subir de rango")
+    await ctx.send(embed=embed)
+
+
 @bot.command(name="ayuda-pokebot")
 async def help_command(ctx: commands.Context):
     embed = discord.Embed(
