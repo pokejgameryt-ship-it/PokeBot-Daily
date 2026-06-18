@@ -152,7 +152,7 @@ async def daily_trivia_task():
         correct_index = options.index(trivia["correct"])
         label = chr(65 + correct_index)
 
-        view = TriviaView(label, daily["id"], 0)
+        view = TriviaView(label, daily["id"], options)
         await channel.send(embed=embed, view=view)
 
 

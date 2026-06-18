@@ -161,41 +161,38 @@ POKEMON_TRIVIA = [
 
 
 class TriviaView(discord.ui.View):
-    def __init__(self, correct_answer: str, trivia_id: int, user_id: int):
+    def __init__(self, correct_answer: str, trivia_id: int, options: list):
         super().__init__(timeout=60)
         self.correct_answer = correct_answer
         self.trivia_id = trivia_id
-        self.user_id = user_id
-        self.answered = False
+        self.options = options
+        self.responders = set()
 
     @discord.ui.button(label="A", style=discord.ButtonStyle.primary)
     async def option_a(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.check_answer(interaction, self.children[0].label)
+        await self.check_answer(interaction, 0)
 
     @discord.ui.button(label="B", style=discord.ButtonStyle.primary)
     async def option_b(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.check_answer(interaction, self.children[1].label)
+        await self.check_answer(interaction, 1)
 
     @discord.ui.button(label="C", style=discord.ButtonStyle.primary)
     async def option_c(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.check_answer(interaction, self.children[2].label)
+        await self.check_answer(interaction, 2)
 
-    async def check_answer(self, interaction: discord.Interaction, option: str):
-        if self.answered:
+    async def check_answer(self, interaction: discord.Interaction, index: int):
+        if interaction.user.id in self.responders:
             await interaction.response.send_message(
-                "Ya有人 respondió esta trivia.", ephemeral=True
+                "Ya has respondido esta trivia.", ephemeral=True
             )
             return
 
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message(
-                "Esta trivia no es para ti. Espera la siguiente.", ephemeral=True
-            )
-            return
+        self.responders.add(interaction.user.id)
 
-        self.answered = True
+        selected_option = self.options[index]
+        is_correct = selected_option == self.correct_answer
 
-        if option == self.correct_answer:
+        if is_correct:
             db.update_score(interaction.user.id, TRIVIA_POINTS["correct"], interaction.user.display_name)
             db.update_trivia_stats(interaction.user.id, True, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
@@ -204,37 +201,25 @@ class TriviaView(discord.ui.View):
 
             embed = discord.Embed(
                 title="✅ ¡Correcto!",
-                description=f"**{interaction.user.display_name}** acertó la trivia.",
+                description=f"La respuesta **{self.correct_answer}** es correcta.",
                 color=discord.Color.green(),
             )
             embed.add_field(name="Puntos ganados", value=f"+{TRIVIA_POINTS['correct']}")
             embed.add_field(name="Puntos totales", value=str(score))
             embed.add_field(name="Racha actual", value=f"{streak} 🔥")
-
-            for child in self.children:
-                child.disabled = True
-                if child.label == self.correct_answer:
-                    child.style = discord.ButtonStyle.success
-
-            await interaction.response.edit_message(embed=embed, view=self)
+            embed.set_footer(text="Solo tú puedes ver esta respuesta")
         else:
             db.update_trivia_stats(interaction.user.id, False, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
 
             embed = discord.Embed(
                 title="❌ Incorrecto",
-                description=f"La respuesta correcta era: **{self.correct_answer}**",
+                description=f"Tu respuesta: **{selected_option}**\nLa correcta: **{self.correct_answer}**",
                 color=discord.Color.red(),
             )
+            embed.set_footer(text="Solo tú puedes ver esta respuesta")
 
-            for child in self.children:
-                child.disabled = True
-                if child.label == self.correct_answer:
-                    child.style = discord.ButtonStyle.success
-                elif child.label == option:
-                    child.style = discord.ButtonStyle.danger
-
-            await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 class Trivia(commands.Cog):
@@ -275,7 +260,7 @@ class Trivia(commands.Cog):
         label = chr(65 + correct_index)
 
         daily = db.get_daily_trivia()
-        view = TriviaView(label, daily["id"], ctx.author.id)
+        view = TriviaView(label, daily["id"], options)
         await ctx.send(embed=embed, view=view)
 
     @app_commands.command(name="trivia", description="Juega la trivia Pokémon del día")
@@ -312,7 +297,7 @@ class Trivia(commands.Cog):
         label = chr(65 + correct_index)
 
         daily = db.get_daily_trivia()
-        view = TriviaView(label, daily["id"], interaction.user.id)
+        view = TriviaView(label, daily["id"], options)
         await interaction.response.send_message(embed=embed, view=view)
 
     @commands.command(name="leaderboard")
