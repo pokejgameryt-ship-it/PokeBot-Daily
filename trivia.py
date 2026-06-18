@@ -78,14 +78,19 @@ POKEMON_TRIVIA = [
         "options": ["Fantasma/Veneno", "Fantasma/Siniestro", "Solo Fantasma"],
     },
     {
-        "question": "¿Cuál es el Pokémon legendario de las怒り?",
-        "correct": "Rayquaza",
-        "options": ["Rayquaza", "Groudon", "Kyogre"],
-    },
-    {
-        "question": "¿Qué Pokémon controla el tiempo?",
+        "question": "¿Qué Pokémon legendario controla el tiempo?",
         "correct": "Dialga",
         "options": ["Dialga", "Palkia", "Giratina"],
+    },
+    {
+        "question": "¿Qué Pokémon legendario controla el océano?",
+        "correct": "Kyogre",
+        "options": ["Kyogre", "Groudon", "Palkia"],
+    },
+    {
+        "question": "¿Qué Pokémon legendario controla la tierra?",
+        "correct": "Groudon",
+        "options": ["Groudon", "Kyogre", "Rayquaza"],
     },
     {
         "question": "¿Cuál es el tipo de Lucario?",
@@ -93,7 +98,7 @@ POKEMON_TRIVIA = [
         "options": ["Lucha/Acero", "Lucha/Veneno", "Acero/Dragón"],
     },
     {
-        "question": "¿Qué Pokémon es conocido como el 'Pokémon Ave'?",
+        "question": "¿Qué Pokémon es conocido como el Pokémon Ave?",
         "correct": "Ho-Oh",
         "options": ["Ho-Oh", "Lugia", "Articuno"],
     },
@@ -133,11 +138,6 @@ POKEMON_TRIVIA = [
         "options": ["Charmander", "Squirtle", "Bulbasaur"],
     },
     {
-        "question": "¿Qué legendary controla el océano?",
-        "correct": "Kyogre",
-        "options": ["Kyogre", "Groudon", "Palkia"],
-    },
-    {
         "question": "¿De qué tipo es Tyranitar?",
         "correct": "Roca/Siniestro",
         "options": ["Roca/Siniestro", "Roca/Dragón", "Tierra/Siniestro"],
@@ -156,6 +156,56 @@ POKEMON_TRIVIA = [
         "question": "¿Cuál es el Pokémon más rápido de Gen 4?",
         "correct": "Drapion",
         "options": ["Drapion", "Weavile", "Jolteon"],
+    },
+    {
+        "question": "¿Qué Pokémon legendario del cielo puede controlar el clima?",
+        "correct": "Rayquaza",
+        "options": ["Rayquaza", "Groudon", "Kyogre"],
+    },
+    {
+        "question": "¿Cuál es la evolución final de Totodile?",
+        "correct": "Feraligatr",
+        "options": ["Feraligatr", "Croconaw", "Totodile"],
+    },
+    {
+        "question": "¿De qué tipo es Absol?",
+        "correct": "Siniestro",
+        "options": ["Siniestro", "Fantasma", "Lucha"],
+    },
+    {
+        "question": "¿Qué Pokémon tiene forma de pokeball?",
+        "correct": "Klefki",
+        "options": ["Klefki", "Rotom", "Mimikyu"],
+    },
+    {
+        "question": "¿Cuál es el Pokémon más pesado de todos?",
+        "correct": "Celesteela",
+        "options": ["Celesteela", "Cosmoem", "Giratina"],
+    },
+    {
+        "question": "¿Qué Pokémon evoluciona con piedra agua?",
+        "correct": "Staryu",
+        "options": ["Staryu", "Poliwag", "Tentacool"],
+    },
+    {
+        "question": "¿Cuál es el tipo de Dragonite?",
+        "correct": "Dragón/Volador",
+        "options": ["Dragón/Volador", "Dragón/Fuego", "Volador/Normal"],
+    },
+    {
+        "question": "¿Qué Pokémon es el mascot de Pokémon Go?",
+        "correct": "Pikachu",
+        "options": ["Pikachu", "Eevee", "Mew"],
+    },
+    {
+        "question": "¿Cuántos Pokémon legendarios hay en Gen 1?",
+        "correct": "5",
+        "options": ["3", "4", "5"],
+    },
+    {
+        "question": "¿De qué tipo es Arcanine?",
+        "correct": "Fuego",
+        "options": ["Fuego", "Fuego/Lucha", "Normal"],
     },
 ]
 
