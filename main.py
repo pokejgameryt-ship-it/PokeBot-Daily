@@ -170,7 +170,7 @@ async def checkin_command(ctx: commands.Context):
         await ctx.send("Ya hiciste check-in hoy. Vuelve mañana.")
         return
 
-    db.update_score(ctx.author.id, 5)
+    db.update_score(ctx.author.id, 5, ctx.author.display_name)
     streak = db.get_streak(ctx.author.id)
 
     embed = discord.Embed(

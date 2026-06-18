@@ -1,12 +1,14 @@
 import sqlite3
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-DB_NAME = "pokebot_daily.db"
+# Usar ruta absoluta para la base de datos
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pokebot_daily.db")
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -103,37 +105,45 @@ def create_user(user_id: int, username: str) -> dict:
     return get_user(user_id)
 
 
-def update_score(user_id: int, points: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET total_score = total_score + ? WHERE user_id = ?",
-        (points, user_id),
-    )
-    conn.commit()
-    conn.close()
+def update_score(user_id: int, points: int, username: str = "Unknown"):
+    try:
+        create_user(user_id, username)
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET total_score = total_score + ? WHERE user_id = ?",
+            (points, user_id),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error update_score: {e}")
 
 
-def update_trivia_stats(user_id: int, correct: bool):
-    conn = get_connection()
-    cursor = conn.cursor()
-    if correct:
-        cursor.execute(
-            """UPDATE users SET 
-               trivia_correct = trivia_correct + 1,
-               trivia_total = trivia_total + 1,
-               current_streak = current_streak + 1,
-               best_streak = MAX(best_streak, current_streak + 1)
-               WHERE user_id = ?""",
-            (user_id,),
-        )
-    else:
-        cursor.execute(
-            "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = ?",
-            (user_id,),
-        )
-    conn.commit()
-    conn.close()
+def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
+    try:
+        create_user(user_id, username)
+        conn = get_connection()
+        cursor = conn.cursor()
+        if correct:
+            cursor.execute(
+                """UPDATE users SET 
+                   trivia_correct = trivia_correct + 1,
+                   trivia_total = trivia_total + 1,
+                   current_streak = current_streak + 1,
+                   best_streak = MAX(best_streak, current_streak + 1)
+                   WHERE user_id = ?""",
+                (user_id,),
+            )
+        else:
+            cursor.execute(
+                "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = ?",
+                (user_id,),
+            )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error update_trivia_stats: {e}")
 
 
 def checkin(user_id: int) -> bool:

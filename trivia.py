@@ -196,8 +196,8 @@ class TriviaView(discord.ui.View):
         self.answered = True
 
         if option == self.correct_answer:
-            db.update_score(interaction.user.id, TRIVIA_POINTS["correct"])
-            db.update_trivia_stats(interaction.user.id, True)
+            db.update_score(interaction.user.id, TRIVIA_POINTS["correct"], interaction.user.display_name)
+            db.update_trivia_stats(interaction.user.id, True, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
             score = db.get_total_score(interaction.user.id)
             streak = db.get_streak(interaction.user.id)
@@ -218,7 +218,7 @@ class TriviaView(discord.ui.View):
 
             await interaction.response.edit_message(embed=embed, view=self)
         else:
-            db.update_trivia_stats(interaction.user.id, False)
+            db.update_trivia_stats(interaction.user.id, False, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
 
             embed = discord.Embed(
