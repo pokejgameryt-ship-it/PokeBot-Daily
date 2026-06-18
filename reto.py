@@ -73,7 +73,7 @@ class Reto(commands.Cog):
             await ctx.send("Ya completaste este reto.")
             return
 
-        db.update_score(ctx.author.id, RETO_POINTS["completed"])
+        db.update_score(ctx.author.id, RETO_POINTS["completed"], ctx.author.display_name)
 
         embed = discord.Embed(
             title="🎉 ¡Reto Completado!",
@@ -139,7 +139,7 @@ class Reto(commands.Cog):
             )
             return
 
-        db.update_score(interaction.user.id, RETO_POINTS["completed"])
+        db.update_score(interaction.user.id, RETO_POINTS["completed"], interaction.user.display_name)
 
         embed = discord.Embed(
             title="🎉 ¡Reto Completado!",
