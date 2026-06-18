@@ -1,15 +1,14 @@
-import sqlite3
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from typing import Optional
 
-# Usar ruta absoluta para la base de datos
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pokebot_daily.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
 
@@ -19,7 +18,7 @@ def init_db():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
+            user_id BIGINT PRIMARY KEY,
             username TEXT,
             total_score INTEGER DEFAULT 0,
             trivia_correct INTEGER DEFAULT 0,
@@ -33,11 +32,11 @@ def init_db():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS trivia_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             question TEXT,
             answer TEXT,
             options TEXT,
-            winner_id INTEGER,
+            winner_id BIGINT,
             winner_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -45,7 +44,7 @@ def init_db():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS retos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT,
             description TEXT,
             reward_points INTEGER DEFAULT 50,
@@ -57,9 +56,9 @@ def init_db():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reto_completions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             reto_id INTEGER,
-            user_id INTEGER,
+            user_id BIGINT,
             completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (reto_id) REFERENCES retos(id),
             FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -68,7 +67,7 @@ def init_db():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS daily_trivia (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             question TEXT,
             correct_answer TEXT,
             option1 TEXT,
@@ -76,7 +75,7 @@ def init_db():
             option3 TEXT,
             category TEXT,
             created_at DATE DEFAULT CURRENT_DATE,
-            answered_by INTEGER
+            answered_by BIGINT
         )
     """)
 
@@ -87,7 +86,7 @@ def init_db():
 def get_user(user_id: int) -> Optional[dict]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -97,7 +96,7 @@ def create_user(user_id: int, username: str) -> dict:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)",
+        "INSERT INTO users (user_id, username) VALUES (%s, %s) ON CONFLICT (user_id) DO NOTHING",
         (user_id, username),
     )
     conn.commit()
@@ -111,7 +110,7 @@ def update_score(user_id: int, points: int, username: str = "Unknown"):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE users SET total_score = total_score + ? WHERE user_id = ?",
+            "UPDATE users SET total_score = total_score + %s WHERE user_id = %s",
             (points, user_id),
         )
         conn.commit()
@@ -131,13 +130,13 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
                    trivia_correct = trivia_correct + 1,
                    trivia_total = trivia_total + 1,
                    current_streak = current_streak + 1,
-                   best_streak = MAX(best_streak, current_streak + 1)
-                   WHERE user_id = ?""",
+                   best_streak = GREATEST(best_streak, current_streak + 1)
+                   WHERE user_id = %s""",
                 (user_id,),
             )
         else:
             cursor.execute(
-                "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = ?",
+                "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = %s",
                 (user_id,),
             )
         conn.commit()
@@ -149,23 +148,25 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
 def checkin(user_id: int) -> bool:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT last_checkin FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT last_checkin FROM users WHERE user_id = %s", (user_id,))
     row = cursor.fetchone()
 
     today = datetime.now().date()
 
     if row and row["last_checkin"]:
-        last = datetime.strptime(row["last_checkin"], "%Y-%m-%d").date()
+        last = row["last_checkin"]
+        if isinstance(last, str):
+            last = datetime.strptime(last, "%Y-%m-%d").date()
         if last == today:
             conn.close()
             return False
         if (today - last).days > 1:
             cursor.execute(
-                "UPDATE users SET current_streak = 0 WHERE user_id = ?", (user_id,)
+                "UPDATE users SET current_streak = 0 WHERE user_id = %s", (user_id,)
             )
 
     cursor.execute(
-        "UPDATE users SET last_checkin = ? WHERE user_id = ?",
+        "UPDATE users SET last_checkin = %s WHERE user_id = %s",
         (today.isoformat(), user_id),
     )
     conn.commit()
@@ -177,7 +178,7 @@ def get_leaderboard(limit: int = 10) -> list:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT * FROM users ORDER BY total_score DESC LIMIT ?", (limit,)
+        "SELECT * FROM users ORDER BY total_score DESC LIMIT %s", (limit,)
     )
     rows = cursor.fetchall()
     conn.close()
@@ -191,7 +192,7 @@ def get_trivia_leaderboard(limit: int = 10) -> list:
         """SELECT user_id, username, trivia_correct, trivia_total,
            CASE WHEN trivia_total > 0 THEN (trivia_correct * 100.0 / trivia_total) ELSE 0 END as accuracy
            FROM users WHERE trivia_total > 0
-           ORDER BY trivia_correct DESC LIMIT ?""",
+           ORDER BY trivia_correct DESC LIMIT %s""",
         (limit,),
     )
     rows = cursor.fetchall()
@@ -205,10 +206,10 @@ def create_reto(title: str, description: str, reward: int, days: int = 7) -> int
     start = datetime.now().date()
     end = start + timedelta(days=days)
     cursor.execute(
-        "INSERT INTO retos (title, description, reward_points, start_date, end_date) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO retos (title, description, reward_points, start_date, end_date) VALUES (%s, %s, %s, %s, %s) RETURNING id",
         (title, description, reward, start.isoformat(), end.isoformat()),
     )
-    reto_id = cursor.lastrowid
+    reto_id = cursor.fetchone()["id"]
     conn.commit()
     conn.close()
     return reto_id
@@ -219,7 +220,7 @@ def get_active_reto() -> Optional[dict]:
     cursor = conn.cursor()
     today = datetime.now().date().isoformat()
     cursor.execute(
-        "SELECT * FROM retos WHERE active = 1 AND end_date >= ? ORDER BY start_date DESC LIMIT 1",
+        "SELECT * FROM retos WHERE active = 1 AND end_date >= %s ORDER BY start_date DESC LIMIT 1",
         (today,),
     )
     row = cursor.fetchone()
@@ -231,7 +232,7 @@ def complete_reto(user_id: int, reto_id: int) -> bool:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT * FROM reto_completions WHERE reto_id = ? AND user_id = ?",
+        "SELECT * FROM reto_completions WHERE reto_id = %s AND user_id = %s",
         (reto_id, user_id),
     )
     if cursor.fetchone():
@@ -239,11 +240,11 @@ def complete_reto(user_id: int, reto_id: int) -> bool:
         return False
 
     cursor.execute(
-        "INSERT INTO reto_completions (reto_id, user_id) VALUES (?, ?)",
+        "INSERT INTO reto_completions (reto_id, user_id) VALUES (%s, %s)",
         (reto_id, user_id),
     )
     cursor.execute(
-        "UPDATE users SET retos_completed = retos_completed + 1 WHERE user_id = ?",
+        "UPDATE users SET retos_completed = retos_completed + 1 WHERE user_id = %s",
         (user_id,),
     )
     conn.commit()
@@ -255,7 +256,7 @@ def save_trivia_question(question: str, correct: str, options: list):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO daily_trivia (question, correct_answer, option1, option2, option3) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO daily_trivia (question, correct_answer, option1, option2, option3) VALUES (%s, %s, %s, %s, %s)",
         (question, correct, options[0], options[1], options[2]),
     )
     conn.commit()
@@ -267,7 +268,7 @@ def get_daily_trivia() -> Optional[dict]:
     cursor = conn.cursor()
     today = datetime.now().date().isoformat()
     cursor.execute(
-        "SELECT * FROM daily_trivia WHERE created_at = ?", (today,)
+        "SELECT * FROM daily_trivia WHERE created_at = %s", (today,)
     )
     row = cursor.fetchone()
     conn.close()
@@ -278,7 +279,7 @@ def mark_trivia_answered(trivia_id: int, user_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE daily_trivia SET answered_by = ? WHERE id = ?",
+        "UPDATE daily_trivia SET answered_by = %s WHERE id = %s",
         (user_id, trivia_id),
     )
     conn.commit()
@@ -288,7 +289,7 @@ def mark_trivia_answered(trivia_id: int, user_id: int):
 def get_streak(user_id: int) -> int:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT current_streak FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT current_streak FROM users WHERE user_id = %s", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return row["current_streak"] if row else 0
@@ -297,7 +298,7 @@ def get_streak(user_id: int) -> int:
 def get_total_score(user_id: int) -> int:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT total_score FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT total_score FROM users WHERE user_id = %s", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return row["total_score"] if row else 0
