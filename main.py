@@ -127,6 +127,21 @@ async def daily_trivia_task():
                 "correct": "Vulpix",
                 "options": ["Vulpix", "Eevee", "Pikachu"],
             },
+            {
+                "question": "¿Qué Pokémon legendario controla el tiempo?",
+                "correct": "Dialga",
+                "options": ["Dialga", "Palkia", "Giratina"],
+            },
+            {
+                "question": "¿Qué Pokémon legendario controla el océano?",
+                "correct": "Kyogre",
+                "options": ["Kyogre", "Groudon", "Palkia"],
+            },
+            {
+                "question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 1?",
+                "correct": "151",
+                "options": ["150", "151", "152"],
+            },
         ]
 
         trivia = random.choice(POKEMON_TRIVIA)
