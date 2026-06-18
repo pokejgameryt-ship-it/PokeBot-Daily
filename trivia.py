@@ -310,7 +310,7 @@ class Trivia(commands.Cog):
         label = chr(65 + correct_index)
 
         daily = db.get_daily_trivia()
-        view = TriviaView(label, daily["id"], options)
+        view = TriviaView(trivia["correct"], daily["id"], options)
         await ctx.send(embed=embed, view=view)
 
     @app_commands.command(name="trivia", description="Juega la trivia Pokémon del día")
@@ -347,7 +347,7 @@ class Trivia(commands.Cog):
         label = chr(65 + correct_index)
 
         daily = db.get_daily_trivia()
-        view = TriviaView(label, daily["id"], options)
+        view = TriviaView(trivia["correct"], daily["id"], options)
         await interaction.response.send_message(embed=embed, view=view)
 
     @commands.command(name="leaderboard")
