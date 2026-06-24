@@ -588,6 +588,7 @@ class Verify(commands.Cog):
         for i in range(60):
             await asyncio.sleep(5)
             verification = get_verification(state)
+            print(f"[DEBUG] Check {i}: state={state}, verification={verification}")
             if verification:
                 connections = verification.get("connections", [])
                 twitch_name = None
