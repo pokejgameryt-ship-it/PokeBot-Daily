@@ -5,6 +5,8 @@ from discord import app_commands
 import database as db
 from config import TRIVIA_POINTS
 
+STREAK_ROLE_ID = 1519370767106576514
+
 
 POKEMON_TRIVIA = [
     {
@@ -244,10 +246,15 @@ class TriviaView(discord.ui.View):
 
         if is_correct:
             db.update_score(interaction.user.id, TRIVIA_POINTS["correct"], interaction.user.display_name)
-            db.update_trivia_stats(interaction.user.id, True, interaction.user.display_name)
+            streak_change = db.update_trivia_stats(interaction.user.id, True, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
             score = db.get_total_score(interaction.user.id)
             streak = db.get_streak(interaction.user.id)
+
+            if streak_change["old_streak"] == 0 and streak_change["new_streak"] > 0:
+                role = interaction.guild.get_role(STREAK_ROLE_ID)
+                if role:
+                    await interaction.user.add_roles(role)
 
             embed = discord.Embed(
                 title="✅ ¡Correcto!",
@@ -259,8 +266,13 @@ class TriviaView(discord.ui.View):
             embed.add_field(name="Racha actual", value=f"{streak} 🔥")
             embed.set_footer(text="Solo tú puedes ver esta respuesta")
         else:
-            db.update_trivia_stats(interaction.user.id, False, interaction.user.display_name)
+            streak_change = db.update_trivia_stats(interaction.user.id, False, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
+
+            if streak_change["old_streak"] > 0 and streak_change["new_streak"] == 0:
+                role = interaction.guild.get_role(STREAK_ROLE_ID)
+                if role:
+                    await interaction.user.remove_roles(role)
 
             embed = discord.Embed(
                 title="❌ Incorrecto",

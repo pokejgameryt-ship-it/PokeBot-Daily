@@ -251,15 +251,15 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
                 (user_id,),
             )
         row = cursor.fetchone()
-        current_streak = row["current_streak"] if row else 0
+        old_streak = row["current_streak"] if row else 0
         last_trivia_date = row["last_trivia_date"] if row else None
 
         if correct:
             days_since = (today - last_trivia_date).days if last_trivia_date else 999
             if days_since == 1:
-                new_streak = current_streak + 1
+                new_streak = old_streak + 1
             elif days_since == 0:
-                new_streak = current_streak
+                new_streak = old_streak
             else:
                 new_streak = 1
 
@@ -286,6 +286,7 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
                     (new_streak, new_streak, today, user_id),
                 )
         else:
+            new_streak = 0
             if _is_postgres():
                 cursor.execute(
                     """UPDATE users SET 
@@ -305,8 +306,10 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
         conn.commit()
         conn.close()
         print(f"✅ Trivia stats actualizados: user={user_id}, correct={correct}")
+        return {"old_streak": old_streak, "new_streak": new_streak}
     except Exception as e:
         print(f"❌ Error update_trivia_stats: {e}")
+        return {"old_streak": 0, "new_streak": 0}
 
 
 def get_users_needing_reminder():
