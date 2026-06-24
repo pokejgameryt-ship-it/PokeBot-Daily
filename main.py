@@ -23,6 +23,19 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+ALLOWED_CHANNEL_ID = 1516733719191228416
+
+
+@bot.check
+async def check_channel(ctx):
+    if ctx.channel.id != ALLOWED_CHANNEL_ID:
+        await ctx.send(
+            f"❌ Este comando solo funciona en <#{ALLOWED_CHANNEL_ID}>",
+            delete_after=5,
+        )
+        return False
+    return True
+
 
 @bot.event
 async def on_ready():
