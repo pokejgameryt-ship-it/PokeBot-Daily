@@ -6,7 +6,10 @@ import re
 import time
 import asyncio
 import os
+import logging
 from urllib.parse import urlencode
+
+log = logging.getLogger("verify")
 from config import (
     TWITCH_CLIENT_ID,
     TWITCH_CLIENT_SECRET,
@@ -49,7 +52,7 @@ def _get_twitch_token():
 def check_twitch_follow(username: str) -> bool:
     token = _get_twitch_token()
     if not token:
-        print(f"[ERROR] No se pudo obtener token de Twitch")
+        log.error("No se pudo obtener token de Twitch")
         return False
     headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"}
     resp = requests.get(
@@ -58,11 +61,11 @@ def check_twitch_follow(username: str) -> bool:
         params={"login": username},
     )
     if resp.status_code != 200:
-        print(f"[ERROR] Twitch users API falló ({resp.status_code}): {resp.text}")
+        log.error(f" Twitch users API falló ({resp.status_code}): {resp.text}")
         return False
     users = resp.json().get("data", [])
     if not users:
-        print(f"[ERROR] No se encontró el usuario de Twitch: {username}")
+        log.error(f" No se encontró el usuario de Twitch: {username}")
         return False
     user_id = users[0]["id"]
     resp = requests.get(
@@ -71,10 +74,10 @@ def check_twitch_follow(username: str) -> bool:
         params={"from_id": user_id, "to_id": TWITCH_BROADCASTER_ID},
     )
     if resp.status_code != 200:
-        print(f"[ERROR] Twitch follows API falló ({resp.status_code}): {resp.text}")
+        log.error(f" Twitch follows API falló ({resp.status_code}): {resp.text}")
         return False
     total = resp.json().get("total", 0)
-    print(f"[DEBUG] check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, total={total}")
+    log.info(f" check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, total={total}")
     return total > 0
 
 
@@ -131,157 +134,171 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        print(f"[DEBUG] CodeModal.on_submit iniciado por {interaction.user}")
-        await interaction.response.defer(ephemeral=True)
+        log.info(f"CodeModal.on_submit iniciado por {interaction.user}")
+        try:
+            await interaction.response.defer(ephemeral=True)
 
-        code_value = self.code.value.strip()
-        print(f"[DEBUG] Código recibido: {code_value[:10]}...")
+            code_value = self.code.value.strip()
+            log.info(f"Código recibido: {code_value[:10]}...")
 
-        import aiohttp as _aiohttp
-        async with _aiohttp.ClientSession() as session:
-            data = {
-                "client_id": DISCORD_CLIENT_ID,
-                "client_secret": DISCORD_CLIENT_SECRET,
-                "grant_type": "authorization_code",
-                "code": code_value,
-                "redirect_uri": DISCORD_REDIRECT_URI,
-            }
-            print(f"[DEBUG] Client ID: {DISCORD_CLIENT_ID}")
-            print(f"[DEBUG] Redirect URI: {DISCORD_REDIRECT_URI}")
-            async with session.post("https://discord.com/api/oauth2/token", data=data) as resp:
-                resp_text = await resp.text()
-                print(f"[DEBUG] Discord token response: {resp.status} - {resp_text[:200]}")
-                if resp.status != 200:
-                    await interaction.followup.send(
-                        embed=discord.Embed(
-                            title="❌ Código inválido",
-                            description=f"Error de Discord: {resp_text[:200]}",
-                            color=discord.Color.red(),
-                        ),
-                        ephemeral=True,
-                    )
-                    return
-                token_data = await resp.json()
-                access_token = token_data["access_token"]
+            import aiohttp as _aiohttp
+            async with _aiohttp.ClientSession() as session:
+                data = {
+                    "client_id": DISCORD_CLIENT_ID,
+                    "client_secret": DISCORD_CLIENT_SECRET,
+                    "grant_type": "authorization_code",
+                    "code": code_value,
+                    "redirect_uri": DISCORD_REDIRECT_URI,
+                }
+                log.info(f"Client ID: {DISCORD_CLIENT_ID}")
+                log.info(f"Redirect URI: {DISCORD_REDIRECT_URI}")
+                async with session.post("https://discord.com/api/oauth2/token", data=data) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"Discord token response: {resp.status} - {resp_text[:200]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Código inválido",
+                                description=f"Error de Discord: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    token_data = await resp.json()
+                    access_token = token_data["access_token"]
 
-            headers = {"Authorization": f"Bearer {access_token}"}
-            async with session.get("https://discord.com/api/users/@me/connections", headers=headers) as resp:
-                if resp.status != 200:
-                    await interaction.followup.send(
-                        embed=discord.Embed(
-                            title="❌ Error al leer conexiones",
-                            description="No se pudieron leer tus conexiones.",
-                            color=discord.Color.red(),
-                        ),
-                        ephemeral=True,
-                    )
-                    return
-                connections = await resp.json()
-                print(f"[DEBUG] Conexiones de Discord: {connections}")
+                headers = {"Authorization": f"Bearer {access_token}"}
+                async with session.get("https://discord.com/api/users/@me/connections", headers=headers) as resp:
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Error al leer conexiones",
+                                description="No se pudieron leer tus conexiones.",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    connections = await resp.json()
+                    log.info(f"Conexiones de Discord: {connections}")
 
-        twitch_name = None
-        youtube_name = None
-        for conn in connections:
-            if conn["type"] == "twitch":
-                twitch_name = conn["name"]
-            elif conn["type"] == "youtube":
-                youtube_name = conn["name"]
+            twitch_name = None
+            youtube_name = None
+            for conn in connections:
+                if conn["type"] == "twitch":
+                    twitch_name = conn["name"]
+                elif conn["type"] == "youtube":
+                    youtube_name = conn["name"]
 
-        print(f"[DEBUG] Conexiones: twitch={twitch_name}, youtube={youtube_name}")
+            log.info(f"Conexiones: twitch={twitch_name}, youtube={youtube_name}")
 
-        if interaction.user.id == interaction.guild.owner_id:
-            db.create_user(interaction.user.id, interaction.user.display_name)
-            db.set_verified(interaction.user.id, True, "owner", "owner")
-            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await interaction.user.add_roles(role)
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="✅ Verificado",
-                    description="Eres el owner, verificado automáticamente.",
-                    color=discord.Color.green(),
-                ),
-                ephemeral=True,
-            )
-            return
+            if interaction.user.id == interaction.guild.owner_id:
+                db.create_user(interaction.user.id, interaction.user.display_name)
+                db.set_verified(interaction.user.id, True, "owner", "owner")
+                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+                if role:
+                    await interaction.user.add_roles(role)
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="✅ Verificado",
+                        description="Eres el owner, verificado automáticamente.",
+                        color=discord.Color.green(),
+                    ),
+                    ephemeral=True,
+                )
+                return
 
-        verified = False
-        platform_used = None
-        username_used = None
+            verified = False
+            platform_used = None
+            username_used = None
 
-        if twitch_name:
-            if twitch_name.lower() == TWITCH_BROADCASTER_LOGIN.lower():
-                print(f"[DEBUG] Twitch es el broadcaster, auto-verificado")
-                verified = True
-                platform_used = "twitch"
-                username_used = twitch_name.lower()
-            else:
-                print(f"[DEBUG] Comprobando follow de Twitch: {twitch_name.lower()}")
-                if check_twitch_follow(twitch_name.lower()):
+            if twitch_name:
+                if twitch_name.lower() == TWITCH_BROADCASTER_LOGIN.lower():
+                    log.info("Twitch es el broadcaster, auto-verificado")
                     verified = True
                     platform_used = "twitch"
                     username_used = twitch_name.lower()
                 else:
-                    print(f"[DEBUG] Twitch follow falló para {twitch_name}")
+                    log.info(f"Comprobando follow de Twitch: {twitch_name.lower()}")
+                    if check_twitch_follow(twitch_name.lower()):
+                        verified = True
+                        platform_used = "twitch"
+                        username_used = twitch_name.lower()
+                    else:
+                        log.warning(f"Twitch follow falló para {twitch_name}")
 
-        if not verified and youtube_name:
-            if youtube_name.lower() == YOUTUBE_CHANNEL_ID.lower() or youtube_name.lstrip("@").lower() == "pokejgamer":
-                print(f"[DEBUG] YouTube es el canal, auto-verificado")
-                verified = True
-                platform_used = "youtube"
-                username_used = youtube_name
-            else:
-                print(f"[DEBUG] Comprobando suscripción de YouTube: {youtube_name}")
-                if check_youtube_subscription(youtube_name):
+            if not verified and youtube_name:
+                if youtube_name.lower() == YOUTUBE_CHANNEL_ID.lower() or youtube_name.lstrip("@").lower() == "pokejgamer":
+                    log.info("YouTube es el canal, auto-verificado")
                     verified = True
                     platform_used = "youtube"
                     username_used = youtube_name
                 else:
-                    print(f"[DEBUG] YouTube subscription falló para {youtube_name}")
+                    log.info(f"Comprobando suscripción de YouTube: {youtube_name}")
+                    if check_youtube_subscription(youtube_name):
+                        verified = True
+                        platform_used = "youtube"
+                        username_used = youtube_name
+                    else:
+                        log.warning(f"YouTube subscription falló para {youtube_name}")
 
-        if verified:
-            db.create_user(interaction.user.id, interaction.user.display_name)
-            db.set_verified(interaction.user.id, True, platform_used, username_used)
-            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await interaction.user.add_roles(role)
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="✅ Verificado",
-                    description=f"Tu **{platform_used.title()}** **{username_used}** está verificado.\n\nYa tienes el rol **Miembro**.",
-                    color=discord.Color.green(),
-                ),
-                ephemeral=True,
-            )
-        else:
-            desc = ""
-            if twitch_name and youtube_name:
-                desc = (
-                    f"Tu Twitch **{twitch_name}** no sigue el canal.\n"
-                    f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
-                    f"Sigue: **https://twitch.tv/pokejgamer**\n"
-                    f"Suscríbete: **https://youtube.com/@pokejgamer**"
-                )
-            elif twitch_name:
-                desc = (
-                    f"Tu Twitch **{twitch_name}** no sigue el canal.\n\n"
-                    f"Sigue: **https://twitch.tv/pokejgamer**"
-                )
-            elif youtube_name:
-                desc = (
-                    f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
-                    f"Suscríbete: **https://youtube.com/@pokejgamer**"
+            if verified:
+                db.create_user(interaction.user.id, interaction.user.display_name)
+                db.set_verified(interaction.user.id, True, platform_used, username_used)
+                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+                if role:
+                    await interaction.user.add_roles(role)
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="✅ Verificado",
+                        description=f"Tu **{platform_used.title()}** **{username_used}** está verificado.\n\nYa tienes el rol **Miembro**.",
+                        color=discord.Color.green(),
+                    ),
+                    ephemeral=True,
                 )
             else:
-                desc = "No tienes Twitch o YouTube vinculado en Discord.\n\nVe a **Configuración de Discord → Conexiones** para vincularlos."
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="❌ No verificado",
-                    description=desc,
-                    color=discord.Color.red(),
-                ),
-                ephemeral=True,
-            )
+                desc = ""
+                if twitch_name and youtube_name:
+                    desc = (
+                        f"Tu Twitch **{twitch_name}** no sigue el canal.\n"
+                        f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
+                        f"Sigue: **https://twitch.tv/pokejgamer**\n"
+                        f"Suscríbete: **https://youtube.com/@pokejgamer**"
+                    )
+                elif twitch_name:
+                    desc = (
+                        f"Tu Twitch **{twitch_name}** no sigue el canal.\n\n"
+                        f"Sigue: **https://twitch.tv/pokejgamer**"
+                    )
+                elif youtube_name:
+                    desc = (
+                        f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
+                        f"Suscríbete: **https://youtube.com/@pokejgamer**"
+                    )
+                else:
+                    desc = "No tienes Twitch o YouTube vinculado en Discord.\n\nVe a **Configuración de Discord → Conexiones** para vincularlos."
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ No verificado",
+                        description=desc,
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+        except Exception as e:
+            log.exception(f"Error en CodeModal.on_submit: {e}")
+            try:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ Error interno",
+                        description=f"Error: {e}",
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+            except:
+                pass
 
 
 class VerifyView(ui.View):
@@ -360,7 +377,7 @@ class Verify(commands.Cog):
                     await member.remove_roles(role)
                     db.set_verified(member.id, False, None, None)
         if assigned > 0:
-            print(f"[OK] Verificados {assigned} miembros existentes")
+            log.info(f" Verificados {assigned} miembros existentes")
 
     @tasks.loop(minutes=10)
     async def check_followers(self):
@@ -490,7 +507,7 @@ class Verify(commands.Cog):
 
 def check_youtube_subscription(channel_name: str) -> bool:
     if not YOUTUBE_API_KEY:
-        print(f"[ERROR] No hay YOUTUBE_API_KEY configurada")
+        log.error(f" No hay YOUTUBE_API_KEY configurada")
         return False
     channel_id = None
     handle = None
@@ -501,7 +518,7 @@ def check_youtube_subscription(channel_name: str) -> bool:
     else:
         handle = channel_name.lstrip("@")
     if handle:
-        print(f"[DEBUG] YouTube handle: {handle}")
+        log.info(f" YouTube handle: {handle}")
         resp = requests.get(
             "https://www.googleapis.com/youtube/v3/channels",
             params={"key": YOUTUBE_API_KEY, "forHandle": handle, "part": "id"},
@@ -510,9 +527,9 @@ def check_youtube_subscription(channel_name: str) -> bool:
             items = resp.json().get("items", [])
             if items:
                 channel_id = items[0]["id"]
-                print(f"[DEBUG] YouTube channel_id: {channel_id}")
+                log.info(f" YouTube channel_id: {channel_id}")
     if not channel_id:
-        print(f"[ERROR] No se pudo obtener channel_id de YouTube para: {channel_name}")
+        log.error(f" No se pudo obtener channel_id de YouTube para: {channel_name}")
         return False
     resp = requests.get(
         "https://www.googleapis.com/youtube/v3/subscriptions",
@@ -525,10 +542,10 @@ def check_youtube_subscription(channel_name: str) -> bool:
         },
     )
     if resp.status_code != 200:
-        print(f"[ERROR] YouTube subscriptions API falló ({resp.status_code}): {resp.text}")
+        log.error(f" YouTube subscriptions API falló ({resp.status_code}): {resp.text}")
         return False
     result = len(resp.json().get("items", [])) > 0
-    print(f"[DEBUG] check_youtube_subscription({channel_name}): channel_id={channel_id}, target={YOUTUBE_CHANNEL_ID}, subscribed={result}")
+    log.info(f" check_youtube_subscription({channel_name}): channel_id={channel_id}, target={YOUTUBE_CHANNEL_ID}, subscribed={result}")
     return result
 
 
