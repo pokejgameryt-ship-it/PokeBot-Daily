@@ -1,11 +1,55 @@
 import random
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
+from datetime import datetime
 import database as db
-from config import TRIVIA_POINTS
+from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID
 
 STREAK_ROLE_ID = 1519370767106576514
+
+TRUE_FALSE_QUESTIONS = [
+    {"question": "Pikachu es de tipo Eléctrico", "answer": True},
+    {"question": "Charizard es de tipo Fuego/Volador", "answer": True},
+    {"question": "Mewtwo es un Pokémon legendario de Gen 2", "answer": False},
+    {"question": "Eevee tiene 8 evoluciones", "answer": False},
+    {"question": "Garchomp es de tipo Dragón/Tierra", "answer": True},
+    {"question": "Snorlax es el Pokémon más pesado de Gen 1", "answer": False},
+    {"question": "Bulbasaur es el Pokémon inicial de tipo Planta en Gen 1", "answer": True},
+    {"question": "Rayquaza controla el clima", "answer": True},
+    {"question": "Groudon controla el océano", "answer": False},
+    {"question": "Kyogre controla la tierra", "answer": False},
+    {"question": "Lucario es de tipo Lucha/Acero", "answer": True},
+    {"question": "Ho-Oh es el Pokémon Ave legendario", "answer": True},
+    {"question": "Umbreon es de tipo Fantasma", "answer": False},
+    {"question": "Sudowoodo se camufla como árbol", "answer": True},
+    {"question": "Absol es de tipo Siniestro", "answer": True},
+    {"question": "Dialga controla el espacio", "answer": False},
+    {"question": "Palkia controla el tiempo", "answer": False},
+    {"question": "Shedinja tiene 1 HP por su habilidad", "answer": True},
+    {"question": "Klefki tiene forma de pokeball", "answer": False},
+    {"question": "Celesteela es el Pokémon más pesado de todos", "answer": True},
+    {"question": "Arcanine es de tipo Fuego/Lucha", "answer": False},
+    {"question": "Dragonite es de tipo Dragón/Volador", "answer": True},
+    {"question": "Blastoise es la evolución final de Squirtle", "answer": True},
+    {"question": "Jolteon es de tipo Agua", "answer": False},
+    {"question": "Onix es de tipo Roca/Tierra", "answer": True},
+    {"question": "Scizor evoluciona con piedra obscura", "answer": True},
+    {"question": "Machamp tiene la habilidad Cuerpo Puro", "answer": False},
+    {"question": "Electrode es el Pokémon más rápido de Gen 1", "answer": True},
+    {"question": "Gengar es de tipo Fantasma/Veneno", "answer": True},
+    {"question": "Lugia es el guardián del mar", "answer": True},
+    {"question": "Articuno es de tipo Hielo/Volador", "answer": True},
+    {"question": "Zapdos es de tipo Fuego/Volador", "answer": False},
+    {"question": "Moltres es de tipo Fuego/Volador", "answer": True},
+    {"question": "Raikou es de tipo Eléctrico", "answer": True},
+    {"question": "Entei es de tipo Agua", "answer": False},
+    {"question": "Suicune es de tipo Agua", "answer": True},
+    {"question": "Lugia es de tipo Psíquico/Volador", "answer": True},
+    {"question": "Ho-Oh es de tipo Fuego/Volador", "answer": True},
+    {"question": "Celebi controla el tiempo", "answer": True},
+    {"question": "Jirachi concede deseos", "answer": True},
+]
 
 
 POKEMON_TRIVIA = [
@@ -284,9 +328,137 @@ class TriviaView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+class WeeklyQuizView(discord.ui.View):
+    def __init__(self, questions: list, week_key: str):
+        super().__init__(timeout=None)
+        self.questions = questions
+        self.week_key = week_key
+        self.user_responses = {}
+
+    @discord.ui.button(label="✅ Verdadero", style=discord.ButtonStyle.green, custom_id="wq_true")
+    async def true_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.process_answer(interaction, True)
+
+    @discord.ui.button(label="❌ Falso", style=discord.ButtonStyle.red, custom_id="wq_false")
+    async def false_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.process_answer(interaction, False)
+
+    async def process_answer(self, interaction: discord.Interaction, answer: bool):
+        uid = interaction.user.id
+
+        if uid not in self.user_responses:
+            self.user_responses[uid] = {"answers": [], "current": 0}
+
+        user_data = self.user_responses[uid]
+        idx = user_data["current"]
+
+        if idx >= len(self.questions):
+            await interaction.response.send_message(
+                "Ya has completado el quiz semanal.", ephemeral=True
+            )
+            return
+
+        user_data["answers"].append(answer)
+        user_data["current"] += 1
+
+        if user_data["current"] >= len(self.questions):
+            await self.finish_quiz(interaction, uid)
+        else:
+            q = self.questions[user_data["current"]]
+            embed = discord.Embed(
+                title=f"📋 Quiz Semanal - Pregunta {user_data['current'] + 1}/{len(self.questions)}",
+                description=f"**{q['question']}**",
+                color=discord.Color.blue(),
+            )
+            embed.set_footer(text=f"Respuestas: {user_data['current']}/{len(self.questions)}")
+            await interaction.response.edit_message(embed=embed, view=self)
+
+    async def finish_quiz(self, interaction: discord.Interaction, uid: int):
+        user_data = self.user_responses[uid]
+        correct = 0
+        for i, q in enumerate(self.questions):
+            if i < len(user_data["answers"]) and user_data["answers"][i] == q["answer"]:
+                correct += 1
+
+        if correct == 10:
+            points = 50
+        elif correct >= 7:
+            points = 20
+        elif correct >= 5:
+            points = 10
+        else:
+            points = 5
+
+        member = interaction.guild.get_member(uid)
+        username = member.display_name if member else "Unknown"
+        db.update_score(uid, points, username)
+        db.save_weekly_quiz_answer(self.week_key, uid, user_data["answers"], correct, username)
+
+        embed = discord.Embed(
+            title="🎉 Quiz Semanal Completado",
+            description=f"Has acertado **{correct}/10** preguntas",
+            color=discord.Color.green() if correct >= 7 else discord.Color.orange(),
+        )
+        embed.add_field(name="Puntos ganados", value=f"+{points}")
+        embed.add_field(name="Total", value=str(db.get_total_score(uid)))
+
+        result_text = ""
+        for i, q in enumerate(self.questions):
+            user_ans = user_data["answers"][i] if i < len(user_data["answers"]) else None
+            correct_emoji = "✅" if user_ans == q["answer"] else "❌"
+            result_text += f"{correct_emoji} {q['question']}\n"
+        embed.add_field(name="Resultados", value=result_text, inline=False)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 class Trivia(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.weekly_quiz_task.start()
+
+    def cog_unload(self):
+        self.weekly_quiz_task.cancel()
+
+    @tasks.loop(hours=24)
+    async def weekly_quiz_task(self):
+        now = datetime.now()
+        if now.weekday() != 0:
+            return
+        if now.hour != 10 or now.minute != 0:
+            return
+
+        guild = self.bot.guilds[0] if self.bot.guilds else None
+        if not guild:
+            return
+
+        channel = guild.get_channel(TRIVIA_CHANNEL_ID)
+        if not channel:
+            return
+
+        existing = db.get_active_weekly_quiz()
+        if existing:
+            return
+
+        questions = random.sample(TRUE_FALSE_QUESTIONS, 10)
+        week_key = now.strftime("%Y-W%W")
+        db.save_weekly_quiz(questions, week_key)
+
+        embed = discord.Embed(
+            title="🎯 Quiz Semanal de Pokémon",
+            description="¡10 preguntas de Verdadero o Falso! Responde todas para ganar puntos.\n\n"
+                       "10/10 = **50 puntos** | 7-9 = **20 puntos** | 5-6 = **10 puntos** | 1-4 = **5 puntos**\n\n"
+                       " Usa los botones para responder. ¡Buena suerte!",
+            color=discord.Color.gold(),
+        )
+        embed.set_footer(text="Cada pregunta se envía por separado (ephemeral)")
+
+        view = WeeklyQuizView(questions, week_key)
+        await channel.send(embed=embed, view=view)
+
+    @weekly_quiz_task.before_loop
+    async def before_weekly_quiz(self):
+        await self.bot.wait_until_ready()
 
     @commands.command(name="trivia")
     async def trivia_command(self, ctx: commands.Context):
