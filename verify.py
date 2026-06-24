@@ -247,9 +247,9 @@ class VerifyView(ui.View):
 
 class CodeView(ui.View):
     def __init__(self):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
 
-    @ui.button(label="Pegar código", style=discord.ButtonStyle.green, emoji="📋")
+    @ui.button(label="Pegar código", style=discord.ButtonStyle.green, emoji="📋", custom_id="paste_code_btn")
     async def paste_code(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(CodeModal())
 
