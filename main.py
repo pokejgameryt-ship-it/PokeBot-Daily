@@ -44,6 +44,7 @@ async def on_ready():
     # Cargar cogs
     await bot.load_extension("trivia")
     await bot.load_extension("reto")
+    await bot.load_extension("verify")
     
     print(f"✅ {bot.user} está online y listo para funcionar.")
     print(f"📊 Base de datos inicializada.")
