@@ -9,6 +9,8 @@ log = logging.getLogger("question_gen")
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GENERATOR_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+VERIFIER_MODEL = "google/gemma-2-9b-it:free"
 
 DIFFICULTY_PROMPTS = {
     "easy": (
@@ -48,7 +50,7 @@ def verify_question(question_data: dict) -> dict | None:
             "Responde SOLO con JSON válido."
         )
         payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": VERIFIER_MODEL,
             "messages": [
                 {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
                 {"role": "user", "content": verify_prompt},
@@ -88,7 +90,7 @@ def generate_question(difficulty: str) -> dict | None:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": GENERATOR_MODEL,
             "messages": [
                 {"role": "system", "content": "Eres un experto en Pokémon. Responde solo con JSON válido, sin texto adicional."},
                 {"role": "user", "content": DIFFICULTY_PROMPTS[difficulty]},
@@ -164,7 +166,7 @@ def generate_weekly_question() -> dict | None:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": GENERATOR_MODEL,
             "messages": [
                 {"role": "system", "content": "Eres un experto en Pokémon. Responde solo con JSON válido, sin texto adicional."},
                 {"role": "user", "content": (
@@ -219,7 +221,7 @@ def verify_weekly_question(data: dict) -> dict | None:
             "Responde SOLO con JSON válido."
         )
         payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "model": VERIFIER_MODEL,
             "messages": [
                 {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
                 {"role": "user", "content": verify_prompt},
