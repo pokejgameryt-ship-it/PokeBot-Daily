@@ -16,6 +16,7 @@ from config import (
     MIEMBRO_ROLE_ID,
     TWITCH_VIP_ROLE_ID,
     DISCORD_CLIENT_ID,
+    DISCORD_CLIENT_SECRET,
     DISCORD_REDIRECT_URI,
 )
 import database as db
@@ -129,7 +130,7 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
         async with _aiohttp.ClientSession() as session:
             data = {
                 "client_id": DISCORD_CLIENT_ID,
-                "client_secret": os.getenv("DISCORD_CLIENT_SECRET", ""),
+                "client_secret": DISCORD_CLIENT_SECRET,
                 "grant_type": "authorization_code",
                 "code": self.code.value.strip(),
                 "redirect_uri": DISCORD_REDIRECT_URI,
