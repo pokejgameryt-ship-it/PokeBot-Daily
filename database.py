@@ -49,6 +49,7 @@ def init_db():
                 current_streak INTEGER DEFAULT 0,
                 best_streak INTEGER DEFAULT 0,
                 last_checkin DATE,
+                last_trivia_date DATE,
                 retos_completed INTEGER DEFAULT 0
             )
         """)
@@ -108,6 +109,7 @@ def init_db():
                 current_streak INTEGER DEFAULT 0,
                 best_streak INTEGER DEFAULT 0,
                 last_checkin DATE,
+                last_trivia_date DATE,
                 retos_completed INTEGER DEFAULT 0
             )
         """)
@@ -156,6 +158,22 @@ def init_db():
                 answered_by INTEGER
             )
         """)
+
+    if _is_postgres():
+        cursor.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                               WHERE table_name='users' AND column_name='last_trivia_date') THEN 
+                    ALTER TABLE users ADD COLUMN last_trivia_date DATE; 
+                END IF; 
+            END $$;
+        """)
+    else:
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "last_trivia_date" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN last_trivia_date DATE")
 
     conn.commit()
     conn.close()
@@ -220,36 +238,68 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
         create_user(user_id, username)
         conn = get_connection()
         cursor = conn.cursor()
+        today = datetime.now().date()
+
         if _is_postgres():
-            if correct:
+            cursor.execute(
+                "SELECT current_streak, last_trivia_date FROM users WHERE user_id = %s",
+                (user_id,),
+            )
+        else:
+            cursor.execute(
+                "SELECT current_streak, last_trivia_date FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+        row = cursor.fetchone()
+        current_streak = row["current_streak"] if row else 0
+        last_trivia_date = row["last_trivia_date"] if row else None
+
+        if correct:
+            days_since = (today - last_trivia_date).days if last_trivia_date else 999
+            if days_since == 1:
+                new_streak = current_streak + 1
+            elif days_since == 0:
+                new_streak = current_streak
+            else:
+                new_streak = 1
+
+            if _is_postgres():
                 cursor.execute(
                     """UPDATE users SET 
                        trivia_correct = trivia_correct + 1,
                        trivia_total = trivia_total + 1,
-                       current_streak = current_streak + 1,
-                       best_streak = GREATEST(best_streak, current_streak + 1)
+                       current_streak = %s,
+                       best_streak = GREATEST(best_streak, %s),
+                       last_trivia_date = %s
+                       WHERE user_id = %s""",
+                    (new_streak, new_streak, today, user_id),
+                )
+            else:
+                cursor.execute(
+                    """UPDATE users SET 
+                       trivia_correct = trivia_correct + 1,
+                       trivia_total = trivia_total + 1,
+                       current_streak = ?,
+                       best_streak = MAX(best_streak, ?),
+                       last_trivia_date = ?
+                       WHERE user_id = ?""",
+                    (new_streak, new_streak, today, user_id),
+                )
+        else:
+            if _is_postgres():
+                cursor.execute(
+                    """UPDATE users SET 
+                       trivia_total = trivia_total + 1,
+                       current_streak = 0
                        WHERE user_id = %s""",
                     (user_id,),
                 )
             else:
                 cursor.execute(
-                    "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = %s",
-                    (user_id,),
-                )
-        else:
-            if correct:
-                cursor.execute(
                     """UPDATE users SET 
-                       trivia_correct = trivia_correct + 1,
                        trivia_total = trivia_total + 1,
-                       current_streak = current_streak + 1,
-                       best_streak = MAX(best_streak, current_streak + 1)
+                       current_streak = 0
                        WHERE user_id = ?""",
-                    (user_id,),
-                )
-            else:
-                cursor.execute(
-                    "UPDATE users SET trivia_total = trivia_total + 1, current_streak = 0 WHERE user_id = ?",
                     (user_id,),
                 )
         conn.commit()
@@ -257,6 +307,57 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
         print(f"✅ Trivia stats actualizados: user={user_id}, correct={correct}")
     except Exception as e:
         print(f"❌ Error update_trivia_stats: {e}")
+
+
+def get_users_needing_reminder():
+    conn = get_connection()
+    cursor = conn.cursor()
+    today = datetime.now().date()
+    if _is_postgres():
+        cursor.execute(
+            """SELECT user_id, username, current_streak 
+               FROM users 
+               WHERE current_streak > 0 
+               AND last_trivia_date IS NOT NULL 
+               AND last_trivia_date < %s""",
+            (today,),
+        )
+    else:
+        cursor.execute(
+            """SELECT user_id, username, current_streak 
+               FROM users 
+               WHERE current_streak > 0 
+               AND last_trivia_date IS NOT NULL 
+               AND last_trivia_date < ?""",
+            (today,),
+        )
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+
+def reset_stale_streaks():
+    conn = get_connection()
+    cursor = conn.cursor()
+    two_days_ago = datetime.now().date() - timedelta(days=2)
+    if _is_postgres():
+        cursor.execute(
+            """UPDATE users SET current_streak = 0 
+               WHERE current_streak > 0 
+               AND last_trivia_date IS NOT NULL 
+               AND last_trivia_date < %s""",
+            (two_days_ago,),
+        )
+    else:
+        cursor.execute(
+            """UPDATE users SET current_streak = 0 
+               WHERE current_streak > 0 
+               AND last_trivia_date IS NOT NULL 
+               AND last_trivia_date < ?""",
+            (two_days_ago,),
+        )
+    conn.commit()
+    conn.close()
 
 
 def checkin(user_id: int) -> bool:
