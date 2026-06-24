@@ -48,6 +48,7 @@ def _get_twitch_token():
 def check_twitch_follow(username: str) -> bool:
     token = _get_twitch_token()
     if not token:
+        print(f"[ERROR] No se pudo obtener token de Twitch")
         return False
     headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"}
     resp = requests.get(
@@ -56,9 +57,11 @@ def check_twitch_follow(username: str) -> bool:
         params={"login": username},
     )
     if resp.status_code != 200:
+        print(f"[ERROR] Twitch users API falló ({resp.status_code}): {resp.text}")
         return False
     users = resp.json().get("data", [])
     if not users:
+        print(f"[ERROR] No se encontró el usuario de Twitch: {username}")
         return False
     user_id = users[0]["id"]
     resp = requests.get(
@@ -67,8 +70,11 @@ def check_twitch_follow(username: str) -> bool:
         params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
     )
     if resp.status_code != 200:
+        print(f"[ERROR] Twitch followers API falló ({resp.status_code}): {resp.text}")
         return False
-    return len(resp.json().get("data", [])) > 0
+    result = len(resp.json().get("data", [])) > 0
+    print(f"[DEBUG] check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, follows={result}")
+    return result
 
 
 def get_twitch_user_id(username: str) -> str:
