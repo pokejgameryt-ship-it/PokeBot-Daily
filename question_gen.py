@@ -32,6 +32,55 @@ DIFFICULTY_PROMPTS = {
 }
 
 
+def verify_question(question_data: dict) -> dict | None:
+    try:
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        verify_prompt = (
+            f"Pregunta: {question_data['question']}\n"
+            f"Respuesta marcada como correcta: {question_data['correct']}\n"
+            f"Opciones: {question_data['options']}\n\n"
+            "Verifica si la respuesta marcada como correcta es realmente correcta. "
+            "Si es correcta, responde: {\"valid\": true}\n"
+            "Si es incorrecta, responde: {\"valid\": false, \"correct\": \"respuesta correcta\"}\n"
+            "Responde SOLO con JSON válido."
+        )
+        payload = {
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "messages": [
+                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
+                {"role": "user", "content": verify_prompt},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 200,
+        }
+        resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
+        if resp.status_code != 200:
+            log.warning(f"Verify API error: {resp.status_code}")
+            return question_data
+
+        content = resp.json()["choices"][0]["message"]["content"]
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        result = json.loads(content)
+        if result.get("valid"):
+            return question_data
+        elif "correct" in result:
+            log.warning(f"Answer corrected: '{question_data['correct']}' -> '{result['correct']}'")
+            if result["correct"] in question_data["options"]:
+                question_data["correct"] = result["correct"]
+            return question_data
+        return question_data
+
+    except Exception as e:
+        log.exception(f"Error verifying question: {e}")
+        return question_data
+
+
 def generate_question(difficulty: str) -> dict | None:
     try:
         headers = {
@@ -70,6 +119,9 @@ def generate_question(difficulty: str) -> dict | None:
             return None
 
         log.info(f"Generated {difficulty} question: {question_data['question'][:50]}...")
+        verified = verify_question(question_data)
+        if verified:
+            return verified
         return question_data
 
     except Exception as e:
@@ -141,11 +193,62 @@ def generate_weekly_question() -> dict | None:
             return None
 
         log.info(f"Generated weekly T/F question: {data['question'][:50]}...")
+        verified = verify_weekly_question(data)
+        if verified:
+            return verified
         return data
 
     except Exception as e:
         log.exception(f"Error generating weekly question: {e}")
         return None
+
+
+def verify_weekly_question(data: dict) -> dict | None:
+    try:
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        answer_text = "Verdadero" if data["answer"] else "Falso"
+        verify_prompt = (
+            f"Afirmación: {data['question']}\n"
+            f"Marcada como: {answer_text}\n\n"
+            "Verifica si la afirmación es realmente verdadera o falsa. "
+            "Si es correcta, responde: {\"valid\": true}\n"
+            "Si es incorrecta, responde: {\"valid\": false, \"answer\": true/false}\n"
+            "Responde SOLO con JSON válido."
+        )
+        payload = {
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
+            "messages": [
+                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
+                {"role": "user", "content": verify_prompt},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 200,
+        }
+        resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
+        if resp.status_code != 200:
+            log.warning(f"Verify weekly API error: {resp.status_code}")
+            return data
+
+        content = resp.json()["choices"][0]["message"]["content"]
+        content = content.strip()
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        result = json.loads(content)
+        if result.get("valid"):
+            return data
+        elif "answer" in result:
+            log.warning(f"Weekly answer corrected: {data['answer']} -> {result['answer']}")
+            data["answer"] = result["answer"]
+            return data
+        return data
+
+    except Exception as e:
+        log.exception(f"Error verifying weekly question: {e}")
+        return data
 
 
 def get_weekly_questions(local_pool: list, count: int = 10) -> list:
