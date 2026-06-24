@@ -2,6 +2,7 @@
 .token
 *.token
 firebase-service-account.json
+iniciar.bat
 
 # Entorno virtual
 venv/
