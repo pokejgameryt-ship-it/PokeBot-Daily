@@ -131,7 +131,11 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
+        print(f"[DEBUG] CodeModal.on_submit iniciado por {interaction.user}")
         await interaction.response.defer(ephemeral=True)
+
+        code_value = self.code.value.strip()
+        print(f"[DEBUG] Código recibido: {code_value[:10]}...")
 
         import aiohttp as _aiohttp
         async with _aiohttp.ClientSession() as session:
@@ -139,15 +143,19 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
                 "client_id": DISCORD_CLIENT_ID,
                 "client_secret": DISCORD_CLIENT_SECRET,
                 "grant_type": "authorization_code",
-                "code": self.code.value.strip(),
+                "code": code_value,
                 "redirect_uri": DISCORD_REDIRECT_URI,
             }
+            print(f"[DEBUG] Client ID: {DISCORD_CLIENT_ID}")
+            print(f"[DEBUG] Redirect URI: {DISCORD_REDIRECT_URI}")
             async with session.post("https://discord.com/api/oauth2/token", data=data) as resp:
+                resp_text = await resp.text()
+                print(f"[DEBUG] Discord token response: {resp.status} - {resp_text[:200]}")
                 if resp.status != 200:
                     await interaction.followup.send(
                         embed=discord.Embed(
                             title="❌ Código inválido",
-                            description="El código no es válido. Intenta de nuevo.",
+                            description=f"Error de Discord: {resp_text[:200]}",
                             color=discord.Color.red(),
                         ),
                         ephemeral=True,
@@ -169,6 +177,7 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
                     )
                     return
                 connections = await resp.json()
+                print(f"[DEBUG] Conexiones de Discord: {connections}")
 
         twitch_name = None
         youtube_name = None
