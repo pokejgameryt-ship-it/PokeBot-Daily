@@ -24,10 +24,13 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 ALLOWED_CHANNEL_ID = 1516733719191228416
+COMMANDS_ALLOWED_CHANNELS = ["enviar-verificacion", "verificar-todos"]
 
 
 @bot.check
 async def check_channel(ctx):
+    if ctx.command.name in COMMANDS_ALLOWED_CHANNELS:
+        return True
     if ctx.channel.id != ALLOWED_CHANNEL_ID:
         await ctx.send(
             f"❌ Este comando solo funciona en <#{ALLOWED_CHANNEL_ID}>",
