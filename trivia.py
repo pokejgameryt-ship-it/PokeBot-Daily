@@ -387,6 +387,9 @@ class Trivia(commands.Cog):
                 description=daily["question"],
                 color=discord.Color.blue(),
             )
+            embed.add_field(name="A", value=options[0], inline=False)
+            embed.add_field(name="B", value=options[1], inline=False)
+            embed.add_field(name="C", value=options[2], inline=False)
             embed.set_footer(text="Haz click en una opción para responder.")
             await ctx.send(embed=embed, view=view)
             return
@@ -430,6 +433,9 @@ class Trivia(commands.Cog):
                 description=daily["question"],
                 color=discord.Color.blue(),
             )
+            embed.add_field(name="A", value=options[0], inline=False)
+            embed.add_field(name="B", value=options[1], inline=False)
+            embed.add_field(name="C", value=options[2], inline=False)
             embed.set_footer(text="Haz click en una opción para responder.")
             await interaction.response.send_message(embed=embed, view=view)
             return
