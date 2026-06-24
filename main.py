@@ -1,5 +1,6 @@
 import sys
 import io
+import asyncio
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 import discord
@@ -8,6 +9,7 @@ from datetime import datetime
 import database as db
 from config import (
     DISCORD_TOKEN,
+    TRIVIA_CHANNEL_ID,
     TRIVIA_CHANNEL_NAME,
     RETO_CHANNEL_NAME,
     TRIVIA_HOUR,
@@ -87,88 +89,138 @@ async def dar_miembros_command(ctx: commands.Context):
     await msg.edit(embed=embed)
 
 
-@tasks.loop(hours=24)
+@tasks.loop(minutes=1)
 async def daily_trivia_task():
     now = datetime.now()
-    if now.hour == TRIVIA_HOUR and now.minute == TRIVIA_MINUTE:
-        guild = bot.guilds[0] if bot.guilds else None
-        if not guild:
-            return
+    if now.hour != TRIVIA_HOUR or now.minute != TRIVIA_MINUTE:
+        return
 
-        channel = discord.utils.get(guild.text_channels, name=TRIVIA_CHANNEL_NAME)
-        if not channel:
-            return
+    guild = bot.guilds[0] if bot.guilds else None
+    if not guild:
+        return
 
-        import random
+    channel = guild.get_channel(TRIVIA_CHANNEL_ID)
+    if not channel:
+        return
 
-        POKEMON_TRIVIA = [
-            {
-                "question": "¿Cuál es el tipo de Pikachu?",
-                "correct": "Eléctrico",
-                "options": ["Eléctrico", "Fuego", "Normal"],
-            },
-            {
-                "question": "¿Cuál es la evolución final de Charmander?",
-                "correct": "Charizard",
-                "options": ["Charmeleon", "Charizard", "Charmander"],
-            },
-            {
-                "question": "¿De qué tipo es Bulbasaur?",
-                "correct": "Planta/Veneno",
-                "options": ["Planta/Veneno", "Agua/Planta", "Solo Planta"],
-            },
-            {
-                "question": "¿Cuál es el tipo de Mewtwo?",
-                "correct": "Psíquico",
-                "options": ["Psíquico", "Fantasma", "Normal"],
-            },
-            {
-                "question": "¿Qué Pokémon evoluciona con piedra fuego?",
-                "correct": "Vulpix",
-                "options": ["Vulpix", "Eevee", "Pikachu"],
-            },
-            {
-                "question": "¿Qué Pokémon legendario controla el tiempo?",
-                "correct": "Dialga",
-                "options": ["Dialga", "Palkia", "Giratina"],
-            },
-            {
-                "question": "¿Qué Pokémon legendario controla el océano?",
-                "correct": "Kyogre",
-                "options": ["Kyogre", "Groudon", "Palkia"],
-            },
-            {
-                "question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 1?",
-                "correct": "151",
-                "options": ["150", "151", "152"],
-            },
-        ]
+    import random
 
-        trivia = random.choice(POKEMON_TRIVIA)
-        options = trivia["options"][:]
-        random.shuffle(options)
+    POKEMON_TRIVIA = [
+        {
+            "question": "¿Cuál es el tipo de Pikachu?",
+            "correct": "Eléctrico",
+            "options": ["Eléctrico", "Fuego", "Normal"],
+        },
+        {
+            "question": "¿Cuál es la evolución final de Charmander?",
+            "correct": "Charizard",
+            "options": ["Charmeleon", "Charizard", "Charmander"],
+        },
+        {
+            "question": "¿De qué tipo es Bulbasaur?",
+            "correct": "Planta/Veneno",
+            "options": ["Planta/Veneno", "Agua/Planta", "Solo Planta"],
+        },
+        {
+            "question": "¿Cuál es el tipo de Mewtwo?",
+            "correct": "Psíquico",
+            "options": ["Psíquico", "Fantasma", "Normal"],
+        },
+        {
+            "question": "¿Qué Pokémon evoluciona con piedra fuego?",
+            "correct": "Vulpix",
+            "options": ["Vulpix", "Eevee", "Pikachu"],
+        },
+        {
+            "question": "¿Qué Pokémon legendario controla el tiempo?",
+            "correct": "Dialga",
+            "options": ["Dialga", "Palkia", "Giratina"],
+        },
+        {
+            "question": "¿Qué Pokémon legendario controla el océano?",
+            "correct": "Kyogre",
+            "options": ["Kyogre", "Groudon", "Palkia"],
+        },
+        {
+            "question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 1?",
+            "correct": "151",
+            "options": ["150", "151", "152"],
+        },
+        {
+            "question": "¿Cuál es la evolución final de Totodile?",
+            "correct": "Feraligatr",
+            "options": ["Feraligatr", "Croconaw", "Totodile"],
+        },
+        {
+            "question": "¿De qué tipo es Arcanine?",
+            "correct": "Fuego",
+            "options": ["Fuego", "Fuego/Lucha", "Normal"],
+        },
+    ]
 
-        db.save_trivia_question(trivia["question"], trivia["correct"], options)
+    trivia = random.choice(POKEMON_TRIVIA)
+    options = trivia["options"][:]
+    random.shuffle(options)
 
-        from trivia import TriviaView
+    db.save_trivia_question(trivia["question"], trivia["correct"], options)
 
-        daily = db.get_daily_trivia()
+    from trivia import TriviaView
 
-        embed = discord.Embed(
-            title="🎮 Trivia Pokémon del Día",
-            description=trivia["question"],
-            color=discord.Color.blue(),
-        )
-        embed.add_field(name="A", value=options[0], inline=False)
-        embed.add_field(name="B", value=options[1], inline=False)
-        embed.add_field(name="C", value=options[2], inline=False)
-        embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
+    daily = db.get_daily_trivia()
 
-        correct_index = options.index(trivia["correct"])
-        label = chr(65 + correct_index)
+    greeting = "Buenos días entrenadores"
+    if now.weekday() == 0:
+        greeting = "Buenos días entrenadores 🎉 ¡Es lunes! Hoy toca trivia + ranking de la semana"
 
-        view = TriviaView(trivia["correct"], daily["id"], options)
-        await channel.send(embed=embed, view=view)
+    embed = discord.Embed(
+        title=f"🎯 {greeting}, la pregunta de hoy es...",
+        description=f"**{trivia['question']}**",
+        color=discord.Color.blue(),
+    )
+    embed.add_field(name="A", value=options[0], inline=False)
+    embed.add_field(name="B", value=options[1], inline=False)
+    embed.add_field(name="C", value=options[2], inline=False)
+    embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
+
+    view = TriviaView(trivia["correct"], daily["id"], options)
+    await channel.send(embed=embed, view=view)
+
+    if now.weekday() == 0:
+        await asyncio.sleep(2)
+
+        leaders = db.get_leaderboard(10)
+        if leaders:
+            embed_global = discord.Embed(
+                title="🏆 Ranking Global",
+                description="Los miembros más activos del servidor",
+                color=discord.Color.gold(),
+            )
+            medals = ["🥇", "🥈", "🥉"]
+            for i, user in enumerate(leaders):
+                medal = medals[i] if i < 3 else f"#{i+1}"
+                embed_global.add_field(
+                    name=f"{medal} {user['username']}",
+                    value=f"{user['total_score']} pts | Trivia: {user['trivia_correct']}/{user['trivia_total']}",
+                    inline=False,
+                )
+            await channel.send(embed=embed_global)
+
+        trivia_leaders = db.get_trivia_leaderboard(10)
+        if trivia_leaders:
+            embed_trivia = discord.Embed(
+                title="🧠 Ranking Trivia Semanal",
+                description="Los mejores en trivia esta semana",
+                color=discord.Color.purple(),
+            )
+            for i, user in enumerate(trivia_leaders):
+                medal = medals[i] if i < 3 else f"#{i+1}"
+                accuracy = user["accuracy"]
+                embed_trivia.add_field(
+                    name=f"{medal} {user['username']}",
+                    value=f"{user['trivia_correct']}/{user['trivia_total']} ({accuracy:.1f}%)",
+                    inline=False,
+                )
+            await channel.send(embed=embed_trivia)
 
 
 @daily_trivia_task.before_loop
