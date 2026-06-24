@@ -17,7 +17,13 @@ from config import (
     DISCORD_REDIRECT_URI,
 )
 import database as db
-from oauth_server import get_verification, start_oauth_server
+
+try:
+    from oauth_server import get_verification, start_oauth_server
+except Exception as e:
+    print(f"[WARN] oauth_server no disponible: {e}")
+    get_verification = lambda x: None
+    start_oauth_server = lambda: None
 
 _twitch_token = None
 _twitch_token_time = 0
@@ -582,6 +588,9 @@ class Verify(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    start_oauth_server()
+    try:
+        start_oauth_server()
+    except Exception as e:
+        print(f"[WARN] OAuth server no iniciado: {e}")
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyView())
