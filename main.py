@@ -74,6 +74,27 @@ async def on_member_join(member):
         )
         await channel.send(embed=embed)
 
+ROLE_VERIFICADO = 1519384320886706296
+ROLE_MIEMBRO = 1516763647765123094
+ROLE_COMBO = 1519391637170553033
+
+
+@bot.event
+async def on_member_update(before, after):
+    if before.roles == after.roles:
+        return
+    role_verificado = after.guild.get_role(ROLE_VERIFICADO)
+    role_miembro = after.guild.get_role(ROLE_MIEMBRO)
+    role_combo = after.guild.get_role(ROLE_COMBO)
+    if not role_verificado or not role_miembro or not role_combo:
+        return
+    has_both = role_verificado in after.roles and role_miembro in after.roles
+    has_combo = role_combo in after.roles
+    if has_both and not has_combo:
+        await after.add_roles(role_combo)
+    elif not has_both and has_combo:
+        await after.remove_roles(role_combo)
+
 
 @bot.command(name="dar-miembros")
 @commands.has_permissions(administrator=True)
