@@ -33,30 +33,7 @@ class Reto(commands.Cog):
             value=reto["end_date"],
             inline=False,
         )
-
-        completions = []
-        conn = db.get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """SELECT u.username FROM reto_completions rc 
-               JOIN users u ON rc.user_id = u.user_id 
-               WHERE rc.reto_id = ?""",
-            (reto["id"],),
-        )
-        completions = [row["username"] for row in cursor.fetchall()]
-        conn.close()
-
-        if completions:
-            embed.add_field(
-                name="Completado por",
-                value=", ".join(completions),
-                inline=False,
-            )
-        else:
-            embed.add_field(
-                name="Completado por", value="Nadie aún", inline=False
-            )
-
+        embed.set_footer(text="Usa /completar-reto cuando lo termines.")
         await ctx.send(embed=embed)
 
     @commands.command(name="completar-reto")
@@ -70,31 +47,31 @@ class Reto(commands.Cog):
 
         success = db.complete_reto(ctx.author.id, reto["id"])
         if not success:
-            await ctx.send("Ya completaste este reto.")
+            await ctx.send("Ya completaste este reto.", ephemeral=True)
             return
 
         db.update_score(ctx.author.id, RETO_POINTS["completed"], ctx.author.display_name)
 
         embed = discord.Embed(
             title="🎉 ¡Reto Completado!",
-            description=f"**{ctx.author.display_name}** completó el reto: {reto['title']}",
+            description=f"Completaste el reto: **{reto['title']}**",
             color=discord.Color.green(),
         )
         embed.add_field(
             name="Puntos ganados",
             value=f"+{RETO_POINTS['completed']}",
         )
-        embed.set_footer(text="Tu logro ha sido registrado en el Hall of Fame.")
+        embed.set_footer(text="Tu logro ha sido registrado.")
+
+        await ctx.send(embed=embed, ephemeral=True)
 
         channel = discord.utils.get(
             ctx.guild.text_channels, name="retos-semanales"
         )
         if channel:
-            await channel.send(embed=embed)
-
-        await ctx.send(
-            f"¡Felicidades {ctx.author.display_name}! Completaste el reto y ganaste {RETO_POINTS['completed']} puntos."
-        )
+            await channel.send(
+                f"🎉 **{ctx.author.display_name}** completó el reto: **{reto['title']}**"
+            )
 
     @app_commands.command(
         name="reto", description="Muestra el reto semanal activo"
@@ -117,6 +94,7 @@ class Reto(commands.Cog):
         )
         embed.add_field(name="Recompensa", value=f"{reto['reward_points']} puntos")
         embed.add_field(name="Fecha límite", value=reto["end_date"])
+        embed.set_footer(text="Usa /completar-reto cuando lo termines.")
 
         await interaction.response.send_message(embed=embed)
 
@@ -143,7 +121,7 @@ class Reto(commands.Cog):
 
         embed = discord.Embed(
             title="🎉 ¡Reto Completado!",
-            description=f"**{interaction.user.display_name}** completó el reto: {reto['title']}",
+            description=f"Completaste el reto: **{reto['title']}**",
             color=discord.Color.green(),
         )
         embed.add_field(
@@ -151,13 +129,15 @@ class Reto(commands.Cog):
             value=f"+{RETO_POINTS['completed']}",
         )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
         channel = discord.utils.get(
             interaction.guild.text_channels, name="retos-semanales"
         )
         if channel:
-            await channel.send(embed=embed)
+            await channel.send(
+                f"🎉 **{interaction.user.display_name}** completó el reto: **{reto['title']}**"
+            )
 
     @commands.command(name="crear-reto")
     @commands.has_permissions(administrator=True)
