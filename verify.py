@@ -5,6 +5,7 @@ import requests
 import re
 import time
 import asyncio
+from urllib.parse import urlencode
 from config import (
     TWITCH_CLIENT_ID,
     TWITCH_CLIENT_SECRET,
@@ -12,8 +13,11 @@ from config import (
     YOUTUBE_API_KEY,
     YOUTUBE_CHANNEL_ID,
     MIEMBRO_ROLE_ID,
+    DISCORD_CLIENT_ID,
+    DISCORD_REDIRECT_URI,
 )
 import database as db
+from oauth_server import get_verification, start_oauth_server
 
 _twitch_token = None
 _twitch_token_time = 0
@@ -257,6 +261,34 @@ class VerifyView(ui.View):
     async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(VerifyYouTubeModal())
 
+    @ui.button(label="Discord (Auto)", style=discord.ButtonStyle.Primary, emoji="🔵", custom_id="verify_discord")
+    async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
+        state = str(interaction.user.id)
+        params = {
+            "client_id": DISCORD_CLIENT_ID,
+            "redirect_uri": DISCORD_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "identify connections",
+            "state": state,
+        }
+        url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
+        embed = discord.Embed(
+            title="🔗 Verificar con Discord",
+            description=(
+                "Haz clic en el enlace de abajo para autorizar y verificar tus conexiones.\n\n"
+                "**Requisitos:**\n"
+                "• Debes tener **Twitch** o **YouTube** vinculado en tu cuenta de Discord\n"
+                "• Ve a Configuración de Discord → Conexiones para vincularlos"
+            ),
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(
+            name="Enlace de verificación",
+            value=f"[Clic aquí para verificar]({url})",
+            inline=False,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 class Verify(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -445,7 +477,102 @@ class Verify(commands.Cog):
         else:
             await ctx.send("❌ No se pudo verificar la suscripción.")
 
+    @commands.command(name="verificar-discord")
+    async def verify_discord_cmd(self, ctx: commands.Context):
+        state = str(ctx.author.id)
+        params = {
+            "client_id": DISCORD_CLIENT_ID,
+            "redirect_uri": DISCORD_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "identify connections",
+            "state": state,
+        }
+        url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
+        embed = discord.Embed(
+            title="🔗 Verificar con Discord",
+            description=(
+                "Haz clic en el enlace de abajo para autorizar y verificar tus conexiones.\n\n"
+                "**Requisitos:**\n"
+                "• Debes tener **Twitch** o **YouTube** vinculado en tu cuenta de Discord\n"
+                "• Ve a Configuración de Discord → Conexiones para vincularlos"
+            ),
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(
+            name="Enlace de verificación",
+            value=f"[Clic aquí para verificar]({url})",
+            inline=False,
+        )
+        embed.set_footer(text="El enlace expira en 5 minutos")
+        await ctx.send(embed=embed, ephemeral=True)
+
+        for i in range(60):
+            await asyncio.sleep(5)
+            verification = get_verification(state)
+            if verification:
+                connections = verification.get("connections", [])
+                twitch_name = None
+                youtube_name = None
+                for conn in connections:
+                    if conn["type"] == "twitch":
+                        twitch_name = conn["name"]
+                    elif conn["type"] == "youtube":
+                        youtube_name = conn["name"]
+
+                if twitch_name:
+                    if check_twitch_follow(twitch_name.lower()):
+                        db.create_user(ctx.author.id, ctx.author.display_name)
+                        db.set_verified(ctx.author.id, True, "twitch", twitch_name.lower())
+                        role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
+                        if role:
+                            await ctx.author.add_roles(role)
+                        await ctx.send(
+                            embed=discord.Embed(
+                                title="✅ Verificado con Discord",
+                                description=f"Tu cuenta de Twitch **{twitch_name}** sigue el canal.\n\nYa tienes el rol **Miembro**.",
+                                color=discord.Color.green(),
+                            )
+                        )
+                        return
+                    else:
+                        await ctx.send(
+                            embed=discord.Embed(
+                                title="❌ Twitch no sigue el canal",
+                                description=f"Tu cuenta de Twitch **{twitch_name}** no sigue el canal.\n\nAsegúrate de seguir: **https://twitch.tv/pokejgameryt**",
+                                color=discord.Color.red(),
+                            )
+                        )
+                        return
+
+                if youtube_name:
+                    await ctx.send(
+                        embed=discord.Embed(
+                            title="✅ Cuenta de YouTube detectada",
+                            description=f"Tu cuenta de YouTube **{youtube_name}** está vinculada.\n\nVerificando suscripción...",
+                            color=discord.Color.yellow(),
+                        )
+                    )
+                    return
+
+                await ctx.send(
+                    embed=discord.Embed(
+                        title="❌ No se encontró Twitch o YouTube",
+                        description="No tienes **Twitch** o **YouTube** vinculado en tu cuenta de Discord.\n\nVe a Configuración de Discord → Conexiones para vincularlos.",
+                        color=discord.Color.red(),
+                    )
+                )
+                return
+
+        await ctx.send(
+            embed=discord.Embed(
+                title="⏰ Tiempo agotado",
+                description="No se completó la verificación. Usa `!verificar-discord` para intentar de nuevo.",
+                color=discord.Color.orange(),
+            )
+        )
+
 
 async def setup(bot: commands.Bot):
+    start_oauth_server()
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyView())
