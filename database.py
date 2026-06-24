@@ -344,6 +344,22 @@ def get_total_score(user_id: int) -> int:
     return data.get("total_score", 0) if data else 0
 
 
+def get_used_questions() -> dict:
+    ref = db.reference("used_questions")
+    return ref.get() or {}
+
+
+def mark_question_used(question: str):
+    ref = db.reference("used_questions")
+    ref.child(question.replace(".", "_").replace("#", "_").replace("$", "_").replace("[", "_").replace("]", "_")).set({
+        "used_at": datetime.now().isoformat(),
+    })
+
+
+def get_recent_question_cutoff() -> str:
+    return (datetime.now() - timedelta(days=90)).isoformat()
+
+
 def set_verified(user_id: int, verified: bool, platform: str = None, username: str = None):
     ref = _users_ref().child(str(user_id))
     ref.update({
