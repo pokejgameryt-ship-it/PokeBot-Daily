@@ -381,14 +381,16 @@ class Trivia(commands.Cog):
     async def trivia_command(self, ctx: commands.Context):
         daily = db.get_daily_trivia()
         if daily:
+            options = [daily["option1"], daily["option2"], daily["option3"]]
+            difficulty = "medium"
+            view = TriviaView(daily["correct_answer"], daily["id"], options, difficulty)
             embed = discord.Embed(
-                title="📚 Trivia del Día",
-                description="Alguien ya respondió la trivia de hoy. Vuelve mañana.",
-                color=discord.Color.orange(),
+                title="🎮 Trivia Pokémon del Día",
+                description=daily["question"],
+                color=discord.Color.blue(),
             )
-            embed.add_field(name="Pregunta", value=daily["question"])
-            embed.add_field(name="Respuesta", value=daily["correct_answer"])
-            await ctx.send(embed=embed)
+            embed.set_footer(text="Haz click en una opción para responder.")
+            await ctx.send(embed=embed, view=view)
             return
 
         from question_gen import get_trivia_question
@@ -422,14 +424,16 @@ class Trivia(commands.Cog):
     async def trivia_slash(self, interaction: discord.Interaction):
         daily = db.get_daily_trivia()
         if daily:
+            options = [daily["option1"], daily["option2"], daily["option3"]]
+            difficulty = "medium"
+            view = TriviaView(daily["correct_answer"], daily["id"], options, difficulty)
             embed = discord.Embed(
-                title="📚 Trivia del Día",
-                description="Alguien ya respondió la trivia de hoy. Vuelve mañana.",
-                color=discord.Color.orange(),
+                title="🎮 Trivia Pokémon del Día",
+                description=daily["question"],
+                color=discord.Color.blue(),
             )
-            embed.add_field(name="Pregunta", value=daily["question"])
-            embed.add_field(name="Respuesta", value=daily["correct_answer"])
-            await interaction.response.send_message(embed=embed)
+            embed.set_footer(text="Haz click en una opción para responder.")
+            await interaction.response.send_message(embed=embed, view=view)
             return
 
         from question_gen import get_trivia_question
