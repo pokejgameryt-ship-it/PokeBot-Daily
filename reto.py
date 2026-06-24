@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import database as db
-from config import RETO_POINTS, REWARD_ROLES
+from config import RETO_POINTS, REWARD_ROLES, RETO_CHANNEL_ID
 from datetime import datetime
 
 
@@ -65,9 +65,7 @@ class Reto(commands.Cog):
 
         await ctx.send(embed=embed, ephemeral=True)
 
-        channel = discord.utils.get(
-            ctx.guild.text_channels, name="retos-semanales"
-        )
+        channel = ctx.guild.get_channel(RETO_CHANNEL_ID)
         if channel:
             await channel.send(
                 f"🎉 **{ctx.author.display_name}** completó el reto: **{reto['title']}**"
@@ -131,9 +129,7 @@ class Reto(commands.Cog):
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        channel = discord.utils.get(
-            interaction.guild.text_channels, name="retos-semanales"
-        )
+        channel = interaction.guild.get_channel(RETO_CHANNEL_ID)
         if channel:
             await channel.send(
                 f"🎉 **{interaction.user.display_name}** completó el reto: **{reto['title']}**"
@@ -160,9 +156,7 @@ class Reto(commands.Cog):
         embed.add_field(name="Recompensa", value=f"{puntos} puntos")
         embed.add_field(name="Duración", value=f"{dias} días")
 
-        channel = discord.utils.get(
-            ctx.guild.text_channels, name="retos-semanales"
-        )
+        channel = ctx.guild.get_channel(RETO_CHANNEL_ID)
         if channel:
             await channel.send(embed=embed)
 

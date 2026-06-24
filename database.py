@@ -212,17 +212,32 @@ def get_weekly_quiz_leaderboard(week_key: str, limit: int = 10) -> list:
     return results[:limit]
 
 
-def reset_stale_streaks():
+def reset_stale_streaks() -> list:
     two_days_ago = (datetime.now().date() - timedelta(days=2)).isoformat()
     users = _users_ref().get() or {}
     updates = {}
+    reset_users = []
     for uid, data in users.items():
         streak = data.get("current_streak", 0)
         last_date_str = data.get("last_trivia_date")
         if streak > 0 and last_date_str and last_date_str < two_days_ago:
             updates[f"{uid}/current_streak"] = 0
+            reset_users.append(int(uid))
     if updates:
         _users_ref().update(updates)
+    return reset_users
+
+
+def get_streak_leaderboard(limit: int = 10) -> list:
+    users = _users_ref().get() or {}
+    lista = []
+    for uid, data in users.items():
+        if data.get("current_streak", 0) > 0:
+            entry = dict(data)
+            entry["user_id"] = int(uid)
+            lista.append(entry)
+    lista.sort(key=lambda x: x.get("current_streak", 0), reverse=True)
+    return lista[:limit]
 
 
 def checkin(user_id: int) -> bool:

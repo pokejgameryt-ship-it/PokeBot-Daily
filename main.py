@@ -14,10 +14,10 @@ from config import (
     DISCORD_TOKEN,
     TRIVIA_CHANNEL_ID,
     TRIVIA_CHANNEL_NAME,
-    RETO_CHANNEL_NAME,
     TRIVIA_HOUR,
     TRIVIA_MINUTE,
     REWARD_ROLES,
+    STREAK_ROLE_ID,
 )
 
 intents = discord.Intents.default()
@@ -186,7 +186,7 @@ async def daily_trivia_task():
         leaders = db.get_leaderboard(10)
         if leaders:
             embed_global = discord.Embed(
-                title="🏆 Ranking Global",
+                title="🏆 Ranking Global de Puntos",
                 description="Los miembros más activos del servidor",
                 color=discord.Color.gold(),
             )
@@ -216,6 +216,22 @@ async def daily_trivia_task():
                     inline=False,
                 )
             await channel.send(embed=embed_trivia)
+
+        streak_leaders = db.get_streak_leaderboard(10)
+        if streak_leaders:
+            embed_streak = discord.Embed(
+                title="🔥 Ranking de Rachas",
+                description="Los miembros con las mejores rachas activas",
+                color=discord.Color.orange(),
+            )
+            for i, user in enumerate(streak_leaders):
+                medal = medals[i] if i < 3 else f"#{i+1}"
+                embed_streak.add_field(
+                    name=f"{medal} {user['username']}",
+                    value=f"{user['current_streak']} días 🔥 | Mejor: {user.get('best_streak', 0)} ⭐",
+                    inline=False,
+                )
+            await channel.send(embed=embed_streak)
 
 
 @daily_trivia_task.before_loop
@@ -247,7 +263,19 @@ async def before_streak_reminder():
 
 @tasks.loop(hours=1)
 async def reset_stale_streaks_task():
-    db.reset_stale_streaks()
+    reset_users = db.reset_stale_streaks()
+    if reset_users:
+        guild = bot.guilds[0] if bot.guilds else None
+        if guild:
+            role = guild.get_role(STREAK_ROLE_ID)
+            if role:
+                for user_id in reset_users:
+                    try:
+                        member = guild.get_member(user_id)
+                        if member and role in member.roles:
+                            await member.remove_roles(role)
+                    except Exception as e:
+                        logging.warning(f"Could not remove streak role from {user_id}: {e}")
 
 
 @reset_stale_streaks_task.before_loop
