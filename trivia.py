@@ -383,7 +383,7 @@ class Trivia(commands.Cog):
         if daily:
             embed = discord.Embed(
                 title="📚 Trivia del Día",
-                description="Ya有人 respondió la trivia de hoy. Vuelve mañana.",
+                description="Alguien ya respondió la trivia de hoy. Vuelve mañana.",
                 color=discord.Color.orange(),
             )
             embed.add_field(name="Pregunta", value=daily["question"])
@@ -424,7 +424,7 @@ class Trivia(commands.Cog):
         if daily:
             embed = discord.Embed(
                 title="📚 Trivia del Día",
-                description="Ya有人 respondió la trivia de hoy. Vuelve mañana.",
+                description="Alguien ya respondió la trivia de hoy. Vuelve mañana.",
                 color=discord.Color.orange(),
             )
             embed.add_field(name="Pregunta", value=daily["question"])
