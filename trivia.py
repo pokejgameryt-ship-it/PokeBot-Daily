@@ -378,7 +378,7 @@ class Trivia(commands.Cog):
     @commands.command(name="trivia")
     async def trivia_command(self, ctx: commands.Context):
         daily = db.get_daily_trivia()
-        if daily:
+        if daily and daily.get("option1"):
             options = [daily["option1"], daily["option2"], daily["option3"]]
             difficulty = "medium"
             view = TriviaView(daily["correct_answer"], daily["id"], options, difficulty)
@@ -424,7 +424,7 @@ class Trivia(commands.Cog):
     @app_commands.command(name="trivia", description="Juega la trivia Pokémon del día")
     async def trivia_slash(self, interaction: discord.Interaction):
         daily = db.get_daily_trivia()
-        if daily:
+        if daily and daily.get("option1"):
             options = [daily["option1"], daily["option2"], daily["option3"]]
             difficulty = "medium"
             view = TriviaView(daily["correct_answer"], daily["id"], options, difficulty)
