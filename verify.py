@@ -15,6 +15,7 @@ from config import (
     TWITCH_CLIENT_SECRET,
     TWITCH_BROADCASTER_ID,
     TWITCH_BROADCASTER_LOGIN,
+    TWITCH_REDIRECT_URI,
     YOUTUBE_API_KEY,
     YOUTUBE_CHANNEL_ID,
     MIEMBRO_ROLE_ID,
@@ -456,6 +457,119 @@ class YouTubeCodeView(ui.View):
         await interaction.response.send_modal(YouTubeCodeModal())
 
 
+class TwitchCodeModal(ui.Modal, title="Pega el código de Twitch"):
+    code = ui.TextInput(
+        label="Código de Twitch",
+        placeholder="Pega aquí el código de la URL después de autorizar",
+        required=True,
+        max_length=200,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        log.info(f"TwitchCodeModal.on_submit iniciado por {interaction.user}")
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            code_value = self.code.value.strip()
+            log.info(f"Twitch código recibido: {code_value[:10]}...")
+
+            import aiohttp as _aiohttp
+            async with _aiohttp.ClientSession() as session:
+                data = {
+                    "client_id": TWITCH_CLIENT_ID,
+                    "client_secret": TWITCH_CLIENT_SECRET,
+                    "grant_type": "authorization_code",
+                    "code": code_value,
+                    "redirect_uri": TWITCH_REDIRECT_URI,
+                }
+                async with session.post("https://id.twitch.tv/oauth2/token", data=data) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"Twitch token response: {resp.status} - {resp_text[:200]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Código inválido",
+                                description=f"Error de Twitch: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    token_data = await resp.json()
+                    access_token = token_data["access_token"]
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Client-Id": TWITCH_CLIENT_ID,
+                }
+                async with session.get(
+                    "https://api.twitch.tv/helix/channels/followed",
+                    headers=headers,
+                    params={"broadcaster_id": TWITCH_BROADCASTER_ID},
+                ) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"Twitch followed response: {resp.status} - {resp_text[:300]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Error al verificar",
+                                description=f"Error de Twitch: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    data = await resp.json()
+                    items = data.get("data", [])
+                    log.info(f"Twitch followed items: {len(items)}")
+
+            if items:
+                db.create_user(interaction.user.id, interaction.user.display_name)
+                db.set_verified(interaction.user.id, True, "twitch", "twitch-verified")
+                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+                if role:
+                    await interaction.user.add_roles(role)
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="✅ Verificado por Twitch",
+                        description="Sigues el canal en Twitch.\n\nYa tienes el rol **Miembro**.",
+                        color=discord.Color.green(),
+                    ),
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ No sigues el canal",
+                        description="No sigues el canal en Twitch.\n\nSigue: **https://twitch.tv/pokejgamer**",
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+        except Exception as e:
+            log.exception(f"Error en TwitchCodeModal.on_submit: {e}")
+            try:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ Error interno",
+                        description=f"Error: {e}",
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+            except:
+                pass
+
+
+class TwitchCodeView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Pegar código Twitch", style=discord.ButtonStyle.green, emoji="📋", custom_id="paste_twitch_code_btn")
+    async def paste_code(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(TwitchCodeModal())
+
+
 class YouTubeVerifyView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -530,6 +644,27 @@ class VerifyMainView(ui.View):
             color=discord.Color.red(),
         )
         await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
+
+    @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch")
+    async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
+        params = {
+            "client_id": TWITCH_CLIENT_ID,
+            "redirect_uri": TWITCH_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "user:read:follows",
+        }
+        url = f"https://id.twitch.tv/oauth2/authorize?{urlencode(params)}"
+        embed = discord.Embed(
+            title="🟣 Verificar con Twitch",
+            description=(
+                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
+                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
+                f"**Paso 3:** Haz clic en el botón **📋 Pegar código Twitch** de abajo y pégalo\n\n"
+                f"**[Clic aquí para autorizar]({url})**"
+            ),
+            color=discord.Color.green(),
+        )
+        await interaction.response.send_message(embed=embed, view=TwitchCodeView(), ephemeral=True)
 
 
 class Verify(commands.Cog):
@@ -650,9 +785,10 @@ class Verify(commands.Cog):
                 "4. Pega el código en el botón que aparece\n\n"
                 "**Opciones:**\n"
                 "🔵 **Discord** → Verifica si tu Twitch/YouTube vinculado sigue el canal\n"
-                "▶️ **YouTube** → Verifica directamente con tu cuenta de Google\n\n"
+                "▶️ **YouTube** → Verifica directamente con tu cuenta de Google\n"
+                "🟣 **Twitch** → Verifica directamente con tu cuenta de Twitch\n\n"
                 "**Requisitos:**\n"
-                "• Debes tener **Twitch** o **YouTube** vinculado en Discord\n"
+                "• Debes seguir el canal en **Twitch** o estar suscrito en **YouTube**\n"
                 "• Tu suscripción/seguimiento debe ser **pública**"
             ),
             color=discord.Color.blue(),
@@ -756,3 +892,4 @@ async def setup(bot: commands.Bot):
     bot.add_view(VerifyMainView())
     bot.add_view(YouTubeCodeView())
     bot.add_view(YouTubeVerifyView())
+    bot.add_view(TwitchCodeView())
