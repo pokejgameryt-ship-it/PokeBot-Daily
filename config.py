@@ -44,4 +44,4 @@ YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "UCY-yUwAx1C0ApRHWKdo8o0Q")
 
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1519386835514560734")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "r16QgnGBt_ujCZ6ZYvU_BQr43x6y5e3k")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://discord.com/api/oauth2/authorize")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://pokebot-daily-production.up.railway.app/callback")
