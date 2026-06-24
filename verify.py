@@ -259,7 +259,7 @@ class VerifyView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Twitch", style=discord.ButtonStyle.Purple, emoji="🟣", custom_id="verify_twitch")
+    @ui.button(label="Twitch", style=discord.ButtonStyle.blurple, emoji="🟣", custom_id="verify_twitch")
     async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(VerifyTwitchModal())
 
