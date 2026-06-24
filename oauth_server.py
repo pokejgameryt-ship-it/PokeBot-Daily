@@ -91,6 +91,7 @@ def get_verification(user_id: str) -> dict:
 
 
 def start_oauth_server():
-    thread = Thread(target=lambda: app.run(host="0.0.0.0", port=3000, debug=False), daemon=True)
+    port = int(os.getenv("PORT", 3000))
+    thread = Thread(target=lambda: app.run(host="0.0.0.0", port=port, debug=False), daemon=True)
     thread.start()
-    print("[OK] OAuth server started on port 3000")
+    print(f"[OK] OAuth server started on port {port}")
