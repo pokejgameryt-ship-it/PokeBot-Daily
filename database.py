@@ -13,12 +13,22 @@ _SERVICE_ACCOUNT_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "firebase-service-account.json"
 )
 
-if os.path.exists(_SERVICE_ACCOUNT_PATH):
+_service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
+
+if _service_account_json:
+    try:
+        service_account_info = json.loads(_service_account_json)
+        _cred = credentials.Certificate(service_account_info)
+        firebase_admin.initialize_app(_cred, {"databaseURL": FIREBASE_DB_URL})
+        print("[OK] Firebase conectado (via env)")
+    except Exception as e:
+        print(f"[ERROR] Firebase env: {e}")
+elif os.path.exists(_SERVICE_ACCOUNT_PATH):
     _cred = credentials.Certificate(_SERVICE_ACCOUNT_PATH)
     firebase_admin.initialize_app(_cred, {"databaseURL": FIREBASE_DB_URL})
-    print("[OK] Firebase conectado")
+    print("[OK] Firebase conectado (via archivo)")
 else:
-    print("[WARN] firebase-service-account.json no encontrado")
+    print("[WARN] Firebase no configurado")
 
 
 def _users_ref():
