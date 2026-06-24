@@ -146,86 +146,38 @@ async def daily_trivia_task():
     if not channel:
         return
 
+    from trivia import TriviaView, TRIVIA_EASY, TRIVIA_MEDIUM, TRIVIA_HARD, DIFFICULTY_CONFIG
+    from question_gen import get_trivia_question
     import random
 
-    POKEMON_TRIVIA = [
-        {
-            "question": "¿Cuál es el tipo de Pikachu?",
-            "correct": "Eléctrico",
-            "options": ["Eléctrico", "Fuego", "Normal"],
-        },
-        {
-            "question": "¿Cuál es la evolución final de Charmander?",
-            "correct": "Charizard",
-            "options": ["Charmeleon", "Charizard", "Charmander"],
-        },
-        {
-            "question": "¿De qué tipo es Bulbasaur?",
-            "correct": "Planta/Veneno",
-            "options": ["Planta/Veneno", "Agua/Planta", "Solo Planta"],
-        },
-        {
-            "question": "¿Cuál es el tipo de Mewtwo?",
-            "correct": "Psíquico",
-            "options": ["Psíquico", "Fantasma", "Normal"],
-        },
-        {
-            "question": "¿Qué Pokémon evoluciona con piedra fuego?",
-            "correct": "Vulpix",
-            "options": ["Vulpix", "Eevee", "Pikachu"],
-        },
-        {
-            "question": "¿Qué Pokémon legendario controla el tiempo?",
-            "correct": "Dialga",
-            "options": ["Dialga", "Palkia", "Giratina"],
-        },
-        {
-            "question": "¿Qué Pokémon legendario controla el océano?",
-            "correct": "Kyogre",
-            "options": ["Kyogre", "Groudon", "Palkia"],
-        },
-        {
-            "question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 1?",
-            "correct": "151",
-            "options": ["150", "151", "152"],
-        },
-        {
-            "question": "¿Cuál es la evolución final de Totodile?",
-            "correct": "Feraligatr",
-            "options": ["Feraligatr", "Croconaw", "Totodile"],
-        },
-        {
-            "question": "¿De qué tipo es Arcanine?",
-            "correct": "Fuego",
-            "options": ["Fuego", "Fuego/Lucha", "Normal"],
-        },
-    ]
-
-    trivia = random.choice(POKEMON_TRIVIA)
+    difficulty = random.choice(["easy", "medium", "hard"])
+    pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
+    trivia = get_trivia_question(difficulty, pool[difficulty])
     options = trivia["options"][:]
     random.shuffle(options)
 
     db.save_trivia_question(trivia["question"], trivia["correct"], options)
 
-    from trivia import TriviaView
-
     daily = db.get_daily_trivia()
+    diff_config = DIFFICULTY_CONFIG[difficulty]
 
     greeting = "Buenos días entrenadores"
     if now.weekday() == 0:
         greeting = "Buenos días entrenadores 🎉 ¡Es lunes! Hoy toca trivia + ranking de la semana"
 
     embed = discord.Embed(
-        title=f"🎯 {greeting}, la pregunta de hoy es...",
+        title=f"🎯 {greeting} {diff_config['emoji']}",
         description=f"**{trivia['question']}**",
-        color=discord.Color.blue(),
+        color=diff_config["color"],
     )
+    embed.add_field(name="Dificultad", value=diff_config["label"])
+    embed.add_field(name="Puntos", value=str(diff_config["points"]))
     embed.add_field(name="A", value=options[0], inline=False)
     embed.add_field(name="B", value=options[1], inline=False)
     embed.add_field(name="C", value=options[2], inline=False)
     embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
 
-    view = TriviaView(trivia["correct"], daily["id"], options)
+    view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
     await channel.send(embed=embed, view=view)
 
     if now.weekday() == 0:

@@ -8,260 +8,119 @@ from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID
 
 STREAK_ROLE_ID = 1519370767106576514
 
-TRUE_FALSE_QUESTIONS = [
-    {"question": "Pikachu es de tipo Eléctrico", "answer": True},
-    {"question": "Charizard es de tipo Fuego/Volador", "answer": True},
-    {"question": "Mewtwo es un Pokémon legendario de Gen 2", "answer": False},
-    {"question": "Eevee tiene 8 evoluciones", "answer": False},
-    {"question": "Garchomp es de tipo Dragón/Tierra", "answer": True},
-    {"question": "Snorlax es el Pokémon más pesado de Gen 1", "answer": False},
-    {"question": "Bulbasaur es el Pokémon inicial de tipo Planta en Gen 1", "answer": True},
-    {"question": "Rayquaza controla el clima", "answer": True},
-    {"question": "Groudon controla el océano", "answer": False},
-    {"question": "Kyogre controla la tierra", "answer": False},
-    {"question": "Lucario es de tipo Lucha/Acero", "answer": True},
-    {"question": "Ho-Oh es el Pokémon Ave legendario", "answer": True},
-    {"question": "Umbreon es de tipo Fantasma", "answer": False},
-    {"question": "Sudowoodo se camufla como árbol", "answer": True},
-    {"question": "Absol es de tipo Siniestro", "answer": True},
-    {"question": "Dialga controla el espacio", "answer": False},
-    {"question": "Palkia controla el tiempo", "answer": False},
-    {"question": "Shedinja tiene 1 HP por su habilidad", "answer": True},
-    {"question": "Klefki tiene forma de pokeball", "answer": False},
-    {"question": "Celesteela es el Pokémon más pesado de todos", "answer": True},
-    {"question": "Arcanine es de tipo Fuego/Lucha", "answer": False},
-    {"question": "Dragonite es de tipo Dragón/Volador", "answer": True},
-    {"question": "Blastoise es la evolución final de Squirtle", "answer": True},
-    {"question": "Jolteon es de tipo Agua", "answer": False},
-    {"question": "Onix es de tipo Roca/Tierra", "answer": True},
-    {"question": "Scizor evoluciona con piedra obscura", "answer": True},
-    {"question": "Machamp tiene la habilidad Cuerpo Puro", "answer": False},
-    {"question": "Electrode es el Pokémon más rápido de Gen 1", "answer": True},
-    {"question": "Gengar es de tipo Fantasma/Veneno", "answer": True},
-    {"question": "Lugia es el guardián del mar", "answer": True},
-    {"question": "Articuno es de tipo Hielo/Volador", "answer": True},
-    {"question": "Zapdos es de tipo Fuego/Volador", "answer": False},
-    {"question": "Moltres es de tipo Fuego/Volador", "answer": True},
-    {"question": "Raikou es de tipo Eléctrico", "answer": True},
-    {"question": "Entei es de tipo Agua", "answer": False},
-    {"question": "Suicune es de tipo Agua", "answer": True},
-    {"question": "Lugia es de tipo Psíquico/Volador", "answer": True},
-    {"question": "Ho-Oh es de tipo Fuego/Volador", "answer": True},
-    {"question": "Celebi controla el tiempo", "answer": True},
-    {"question": "Jirachi concede deseos", "answer": True},
+DIFFICULTY_CONFIG = {
+    "easy": {"label": "Fácil", "emoji": "🟢", "points": 5, "color": discord.Color.green()},
+    "medium": {"label": "Intermedia", "emoji": "🟡", "points": 10, "color": discord.Color.gold()},
+    "hard": {"label": "Difícil", "emoji": "🔴", "points": 15, "color": discord.Color.red()},
+}
+
+TRIVIA_EASY = [
+    {"question": "¿Cuál es el tipo de Pikachu?", "correct": "Eléctrico", "options": ["Eléctrico", "Fuego", "Normal"]},
+    {"question": "¿Cuál es la evolución final de Charmander?", "correct": "Charizard", "options": ["Charmeleon", "Charizard", "Charmander"]},
+    {"question": "¿De qué tipo es Bulbasaur?", "correct": "Planta/Veneno", "options": ["Planta/Veneno", "Agua/Planta", "Solo Planta"]},
+    {"question": "¿Qué Pokémon es el mascot de la franquicia?", "correct": "Pikachu", "options": ["Pikachu", "Charizard", "Mewtwo"]},
+    {"question": "¿Cuántos Pokémon hay en la Pokédex de Gen 1?", "correct": "151", "options": ["150", "151", "152"]},
+    {"question": "¿Cuál es el tipo de Mewtwo?", "correct": "Psíquico", "options": ["Psíquico", "Fantasma", "Normal"]},
+    {"question": "¿Qué Pokémon inicial es de tipo fuego en Gen 1?", "correct": "Charmander", "options": ["Charmander", "Squirtle", "Bulbasaur"]},
+    {"question": "¿Cuál es la evolución final de Squirtle?", "correct": "Blastoise", "options": ["Wartortle", "Blastoise", "Squirtle"]},
+    {"question": "¿Cuál es la evolución final de Totodile?", "correct": "Feraligatr", "options": ["Feraligatr", "Croconaw", "Totodile"]},
+    {"question": "¿Qué Pokémon legendario controla el tiempo?", "correct": "Dialga", "options": ["Dialga", "Palkia", "Giratina"]},
+    {"question": "¿Qué Pokémon legendario controla el océano?", "correct": "Kyogre", "options": ["Kyogre", "Groudon", "Palkia"]},
+    {"question": "¿Qué Pokémon legendario controla la tierra?", "correct": "Groudon", "options": ["Groudon", "Kyogre", "Rayquaza"]},
+    {"question": "¿De qué tipo es Gengar?", "correct": "Fantasma/Veneno", "options": ["Fantasma/Veneno", "Fantasma/Siniestro", "Solo Fantasma"]},
+    {"question": "¿De qué tipo es Lucario?", "correct": "Lucha/Acero", "options": ["Lucha/Acero", "Lucha/Veneno", "Acero/Dragón"]},
+    {"question": "¿Qué Pokémon es conocido como el Pokémon Ave?", "correct": "Ho-Oh", "options": ["Ho-Oh", "Lugia", "Articuno"]},
+    {"question": "¿De qué tipo es Umbreon?", "correct": "Siniestro", "options": ["Siniestro", "Fantasma", "Psíquico"]},
+    {"question": "¿Cuál es la evolución de Togepi?", "correct": "Togetic", "options": ["Togetic", "Togekiss", "Pichu"]},
+    {"question": "¿Cuántas evoluciones tiene Eevee?", "correct": "9", "options": ["7", "8", "9"]},
+    {"question": "¿De qué tipo es Tyranitar?", "correct": "Roca/Siniestro", "options": ["Roca/Siniestro", "Roca/Dragón", "Tierra/Siniestro"]},
+    {"question": "¿Qué Pokémon se camufla como árbol?", "correct": "Sudowoodo", "options": ["Sudowoodo", "Tropius", "Exeggutor"]},
+    {"question": "¿De qué tipo es Dragonite?", "correct": "Dragón/Volador", "options": ["Dragón/Volador", "Dragón/Fuego", "Volador/Normal"]},
+    {"question": "¿De qué tipo es Arcanine?", "correct": "Fuego", "options": ["Fuego", "Fuego/Lucha", "Normal"]},
+    {"question": "¿De qué tipo es Absol?", "correct": "Siniestro", "options": ["Siniestro", "Fantasma", "Lucha"]},
+    {"question": "¿Qué Pokémon evoluciona con piedra fuego?", "correct": "Vulpix", "options": ["Vulpix", "Eevee", "Pikachu"]},
+    {"question": "¿Qué Pokémon evoluciona con piedra agua?", "correct": "Staryu", "options": ["Staryu", "Poliwag", "Tentacool"]},
+    {"question": "¿Qué Pokémon legendario del cielo controla el clima?", "correct": "Rayquaza", "options": ["Rayquaza", "Groudon", "Kyogre"]},
+    {"question": "¿De qué tipo es Onix?", "correct": "Roca/Tierra", "options": ["Roca/Tierra", "Tierra/Planta", "Roca/Acero"]},
+    {"question": "¿Qué Pokémon tiene forma de pokeball?", "correct": "Klefki", "options": ["Klefki", "Rotom", "Mimikyu"]},
+    {"question": "¿Cuál es el tipo de Jolteon?", "correct": "Eléctrico", "options": ["Eléctrico", "Agua", "Fuego"]},
+    {"question": "¿Qué Pokémon es el mascot de Pokémon Go?", "correct": "Pikachu", "options": ["Pikachu", "Eevee", "Mew"]},
 ]
 
+TRIVIA_MEDIUM = [
+    {"question": "¿Cuál es la habilidad de Slaking?", "correct": "Holgazanería", "options": ["Holgazanería", "Velo Arena", "Cuerpo Puro"]},
+    {"question": "¿Qué Pokémon tiene la capacidad de dar falsos golpes críticos?", "correct": "Machamp", "options": ["Machamp", "Lucario", "Garchomp"]},
+    {"question": "¿Cuál es la evolución de Scyther con piedra obscura?", "correct": "Scizor", "options": ["Scizor", "Kleavor", "No evoluciona"]},
+    {"question": "¿Qué Pokémon tiene 1 solo HP por su habilidad?", "correct": "Shedinja", "options": ["Shedinja", "Duskull", "Sableye"]},
+    {"question": "¿Cuál es la habilidad de Garchomp?", "correct": "Piélago", "options": ["Piélago", "Presión", "Cuerpo Puro"]},
+    {"question": "¿Qué objeto evoluciona a Onix en Steelix?", "correct": "Diente de Acero", "options": ["Diente de Acero", "Piedra Obscura", "Escama Humilde"]},
+    {"question": "¿Cuál es la habilidad de Blissey?", "correct": "Naturalizar", "options": ["Naturalizar", "Fuga", "Escudo Natural"]},
+    {"question": "¿Qué objeto evoluciona a Porygon2?", "correct": "Disco Dubioso", "options": ["Disco Dubioso", "Disco Actualización", "Disco Elegant"]},
+    {"question": "¿Cuál es la habilidad de Gengar?", "correct": "Curanderismo", "options": ["Curanderismo", "Levitación", " absorción"]},
+    {"question": "¿Qué objeto evoluciona a Cleffa?", "correct": "Piedra Lunar", "options": ["Piedra Lunar", "Piedra Solar", "Piedra Fuego"]},
+    {"question": "¿Cuál es la habilidad de Tyranitar?", "correct": "Armadura Batalla", "options": ["Armadura Batalla", "Piel Tosca", "Impulso"]},
+    {"question": "¿Qué objeto evoluciona a Scyther en Kleavor?", "correct": "Roca Gigante", "options": ["Roca Gigante", "Piedra Obscura", "Roca Caliza"]},
+    {"question": "¿Cuál es la habilidad de Metagross?", "correct": "Cuerpo Puro", "options": ["Cuerpo Puro", "Levitación", "Piélago"]},
+    {"question": "¿Qué objeto evoluciona a Gliscor?", "correct": "Piedra Nocturna", "options": ["Piedra Nocturna", "Piedra Lunar", "Escama Humilde"]},
+    {"question": "¿Cuál es la habilidad de Salamence?", "correct": "Intimidación", "options": ["Intimidación", "Velo Arena", "Manto Arena"]},
+    {"question": "¿Qué objeto evoluciona a Electivire?", "correct": "Cable de Combate", "options": ["Cable de Combate", "Piedra Trueno", "Piedra Solar"]},
+    {"question": "¿Cuál es la habilidad de Gyarados?", "correct": "Intimidación", "options": ["Intimidación", "Presión", "Manto Arena"]},
+    {"question": "¿Qué objeto evoluciona a Magmortar?", "correct": "Cable de Combate", "options": ["Cable de Combate", "Piedra Fuego", "Piedra Solar"]},
+    {"question": "¿Cuál es la habilidad de Swampert?", "correct": "Torrente", "options": ["Torrente", "Ancla Arena", "Cuerpo Puro"]},
+    {"question": "¿Qué objeto evoluciona a Rhyperior?", "correct": "Garra Roca", "options": ["Garra Roca", "Piedra Roca", "Piedra Tierra"]},
+    {"question": "¿Cuál es la habilidad de Dusknoir?", "correct": "Presión", "options": ["Presión", "Levitación", "Curanderismo"]},
+    {"question": "¿Qué objeto evoluciona a Togekiss?", "correct": "Piedra Día", "options": ["Piedra Día", "Piedra Lunar", "Piedra Solar"]},
+    {"question": "¿Cuál es la habilidad de Froslass?", "correct": "Capa Nieve", "options": ["Capa Nieve", "Levitación", "Corpo Cura"]},
+    {"question": "¿Qué objeto evoluciona a Tangrowth?", "correct": "Nivel + Nivel", "options": ["Nivel + Nivel", "Piedra Planta", "Ritmo"]},
+    {"question": "¿Cuál es la habilidad de Abomasnow?", "correct": "Nieve Albedo", "options": ["Nieve Albedo", "Piel Tosca", "Roca Pura"]},
+    {"question": "¿Qué objeto evoluciona a Yanmega?", "correct": "Nivel + Nivel", "options": ["Nivel + Nivel", "Piedra Sol", "Ritmo"]},
+    {"question": "¿Cuál es la habilidad de Hippowdon?", "correct": "Ancla Arena", "options": ["Ancla Arena", "Velo Arena", "Manto Arena"]},
+    {"question": "¿Qué objeto evoluciona a Mamoswine?", "correct": "Piedra Antigua", "options": ["Piedra Antigua", "Piedra Hielo", "Piedra Lunar"]},
+    {"question": "¿Cuál es la habilidad de Togekiss?", "correct": "Alegría", "options": ["Alegría", "Grito Guerrero", "Magia Natural"]},
+    {"question": "¿Qué objeto evoluciona a Gallade?", "correct": "Piedra Alba", "options": ["Piedra Alba", "Piedra Lunar", "Piedra Día"]},
+]
 
-POKEMON_TRIVIA = [
-    {
-        "question": "¿Cuál es el tipo de Pikachu?",
-        "correct": "Eléctrico",
-        "options": ["Eléctrico", "Fuego", "Normal"],
-    },
-    {
-        "question": "¿Cuál es la evolución final de Charmander?",
-        "correct": "Charizard",
-        "options": ["Charmeleon", "Charizard", "Charmander"],
-    },
-    {
-        "question": "¿De qué tipo es Bulbasaur?",
-        "correct": "Planta/Veneno",
-        "options": ["Planta/Veneno", "Agua/Planta", "Solo Planta"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon más pesado de la 1ª generación?",
-        "correct": "Onix",
-        "options": ["Onix", "Rhydon", "Snorlax"],
-    },
-    {
-        "question": "¿Qué Pokémon es el mascot de la franquicia?",
-        "correct": "Pikachu",
-        "options": ["Pikachu", "Charizard", "Mewtwo"],
-    },
-    {
-        "question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 1?",
-        "correct": "151",
-        "options": ["150", "151", "152"],
-    },
-    {
-        "question": "¿Cuál es el tipo de Mewtwo?",
-        "correct": "Psíquico",
-        "options": ["Psíquico", "Fantasma", "Normal"],
-    },
-    {
-        "question": "¿Qué Pokémon evoluciona con piedra fuego?",
-        "correct": "Vulpix",
-        "options": ["Vulpix", "Eevee", "Pikachu"],
-    },
-    {
-        "question": "¿Cuál es la habilidad de Slaking?",
-        "correct": "Holgazanería",
-        "options": ["Holgazanería", "Velo Arena", "Cuerpo Puro"],
-    },
-    {
-        "question": "¿De qué tipo es Garchomp?",
-        "correct": "Dragón/Tierra",
-        "options": ["Dragón/Tierra", "Dragón/Volador", "Tierra/Lucha"],
-    },
-    {
-        "question": "¿Cuál es la evolución de Scyther con piedra obscura?",
-        "correct": "Scizor",
-        "options": ["Scizor", "Kleavor", "No evoluciona"],
-    },
-    {
-        "question": "¿Qué Pokémon tiene la capacidad de dar falsos golpes críticos?",
-        "correct": "Machamp",
-        "options": ["Machamp", "Lucario", "Garchomp"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon más rápido de Gen 1?",
-        "correct": "Electrode",
-        "options": ["Electrode", "Jolteon", "Alakazam"],
-    },
-    {
-        "question": "¿De qué tipo es Gengar?",
-        "correct": "Fantasma/Veneno",
-        "options": ["Fantasma/Veneno", "Fantasma/Siniestro", "Solo Fantasma"],
-    },
-    {
-        "question": "¿Qué Pokémon legendario controla el tiempo?",
-        "correct": "Dialga",
-        "options": ["Dialga", "Palkia", "Giratina"],
-    },
-    {
-        "question": "¿Qué Pokémon legendario controla el océano?",
-        "correct": "Kyogre",
-        "options": ["Kyogre", "Groudon", "Palkia"],
-    },
-    {
-        "question": "¿Qué Pokémon legendario controla la tierra?",
-        "correct": "Groudon",
-        "options": ["Groudon", "Kyogre", "Rayquaza"],
-    },
-    {
-        "question": "¿Cuál es el tipo de Lucario?",
-        "correct": "Lucha/Acero",
-        "options": ["Lucha/Acero", "Lucha/Veneno", "Acero/Dragón"],
-    },
-    {
-        "question": "¿Qué Pokémon es conocido como el Pokémon Ave?",
-        "correct": "Ho-Oh",
-        "options": ["Ho-Oh", "Lugia", "Articuno"],
-    },
-    {
-        "question": "¿Cuántas evoluciones tiene Eevee?",
-        "correct": "9",
-        "options": ["7", "8", "9"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon más alto?",
-        "correct": "Celesteela",
-        "options": ["Celesteela", "Wailord", "Eternatus"],
-    },
-    {
-        "question": "¿Qué Pokémon absorbe el aliento de los rivales?",
-        "correct": "Shedinja",
-        "options": ["Shedinja", "Dusclops", "Banette"],
-    },
-    {
-        "question": "¿De qué tipo es Umbreon?",
-        "correct": "Siniestro",
-        "options": ["Siniestro", "Fantasma", "Psíquico"],
-    },
-    {
-        "question": "¿Cuál es la evolución de Togepi?",
-        "correct": "Togetic",
-        "options": ["Togetic", "Togekiss", "Pichu"],
-    },
-    {
-        "question": "¿Qué Pokémon tiene 1 solo HP por su habilidad?",
-        "correct": "Shedinja",
-        "options": ["Shedinja", "Duskull", "Sableye"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon inicial de tipo fuego en Gen 1?",
-        "correct": "Charmander",
-        "options": ["Charmander", "Squirtle", "Bulbasaur"],
-    },
-    {
-        "question": "¿De qué tipo es Tyranitar?",
-        "correct": "Roca/Siniestro",
-        "options": ["Roca/Siniestro", "Roca/Dragón", "Tierra/Siniestro"],
-    },
-    {
-        "question": "¿Cuál es la evolución final de Squirtle?",
-        "correct": "Blastoise",
-        "options": ["Wartortle", "Blastoise", "Squirtle"],
-    },
-    {
-        "question": "¿Qué Pokémon se camufla como árbol?",
-        "correct": "Sudowoodo",
-        "options": ["Sudowoodo", "Tropius", "Exeggutor"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon más rápido de Gen 4?",
-        "correct": "Drapion",
-        "options": ["Drapion", "Weavile", "Jolteon"],
-    },
-    {
-        "question": "¿Qué Pokémon legendario del cielo puede controlar el clima?",
-        "correct": "Rayquaza",
-        "options": ["Rayquaza", "Groudon", "Kyogre"],
-    },
-    {
-        "question": "¿Cuál es la evolución final de Totodile?",
-        "correct": "Feraligatr",
-        "options": ["Feraligatr", "Croconaw", "Totodile"],
-    },
-    {
-        "question": "¿De qué tipo es Absol?",
-        "correct": "Siniestro",
-        "options": ["Siniestro", "Fantasma", "Lucha"],
-    },
-    {
-        "question": "¿Qué Pokémon tiene forma de pokeball?",
-        "correct": "Klefki",
-        "options": ["Klefki", "Rotom", "Mimikyu"],
-    },
-    {
-        "question": "¿Cuál es el Pokémon más pesado de todos?",
-        "correct": "Celesteela",
-        "options": ["Celesteela", "Cosmoem", "Giratina"],
-    },
-    {
-        "question": "¿Qué Pokémon evoluciona con piedra agua?",
-        "correct": "Staryu",
-        "options": ["Staryu", "Poliwag", "Tentacool"],
-    },
-    {
-        "question": "¿Cuál es el tipo de Dragonite?",
-        "correct": "Dragón/Volador",
-        "options": ["Dragón/Volador", "Dragón/Fuego", "Volador/Normal"],
-    },
-    {
-        "question": "¿Qué Pokémon es el mascot de Pokémon Go?",
-        "correct": "Pikachu",
-        "options": ["Pikachu", "Eevee", "Mew"],
-    },
-    {
-        "question": "¿Cuántos Pokémon legendarios hay en Gen 1?",
-        "correct": "5",
-        "options": ["3", "4", "5"],
-    },
-    {
-        "question": "¿De qué tipo es Arcanine?",
-        "correct": "Fuego",
-        "options": ["Fuego", "Fuego/Lucha", "Normal"],
-    },
+TRIVIA_HARD = [
+    {"question": "¿Cuál es el stat base de ataque de Mewtwo?", "correct": "150", "options": ["130", "150", "110"]},
+    {"question": "¿Cuánto mide Blissey en metros?", "correct": "1.50", "options": ["1.50", "1.80", "2.00"]},
+    {"question": "¿Cuál es el peso base de Snorlax en kg?", "correct": "460", "options": ["460", "350", "520"]},
+    {"question": "¿En qué generación apareció el movimiento Cascada?", "correct": "Gen 1", "options": ["Gen 1", "Gen 2", "Gen 3"]},
+    {"question": "¿Cuál es la probabilidad de captura base de Articuno?", "correct": "3", "options": ["3", "5", "1"]},
+    {"question": "¿Cuál es el stat base de defensa de Garchomp?", "correct": "95", "options": ["85", "95", "105"]},
+    {"question": "¿Qué Pokémon tiene el stat base de velocidad más alto?", "correct": "Regieleki", "options": ["Regieleki", "Ninjask", "Jolteon"]},
+    {"question": "¿Cuál es el stat base de HP de Chansey?", "correct": "250", "options": ["200", "250", "300"]},
+    {"question": "¿Cuántos Pokémon hay en la Pokédex Nacional de Gen 8?", "correct": "893", "options": ["890", "893", "900"]},
+    {"question": "¿Cuál es el stat base de ataque de Rayquaza?", "correct": "150", "options": ["140", "150", "160"]},
+    {"question": "¿Qué Pokémon tiene la defensa base más alta?", "correct": "Shuckle", "options": ["Shuckle", "Steelix", "Aggron"]},
+    {"question": "¿Cuál es el stat base de Sp. Atk de Gengar?", "correct": "130", "options": ["120", "130", "140"]},
+    {"question": "¿Cuánto pesa Groudon en kg?", "correct": "950", "options": ["950", "850", "1050"]},
+    {"question": "¿Cuál es la descripción de Bulbasaur en Pokédex Roja?", "correct": "Semilla", "options": ["Semilla", "Hierba", "Hoja"]},
+    {"question": "¿Qué Pokémon tiene el stat base de Sp. Def más alto?", "correct": "Shuckle", "options": ["Shuckle", "Claydol", "Deoxys"]},
+    {"question": "¿Cuál es el stat base de ataque de Deoxys Ataque?", "correct": "180", "options": ["150", "180", "200"]},
+    {"question": "¿En qué evento se obtuvo Jirachi europeo?", "correct": "Wish Maker", "options": ["Wish Maker", "Pokemon Festa", "Nintendo World"]},
+    {"question": "¿Cuál es la altura base de Wailord en metros?", "correct": "14.5", "options": ["14.5", "12.0", "16.0"]},
+    {"question": "¿Qué Pokémon tiene el stat base total más alto (sin mega)?", "correct": "Arceus", "options": ["Arceus", "Mewtwo", "Rayquaza"]},
+    {"question": "¿Cuál es el stat base de defensa de Eternatus?", "correct": "95", "options": ["85", "95", "105"]},
+    {"question": "¿Cuántos Pokémon legendarios hay en Gen 4?", "correct": "13", "options": ["11", "13", "15"]},
+    {"question": "¿Cuál es la descripción de Charizard en Pokédex Roja?", "correct": "Llama", "options": ["Llama", "Fuego", "Dragón"]},
+    {"question": "¿Qué objeto necesita Deoxys para cambiar de forma?", "correct": "Meteorito", "options": ["Meteorito", "Piedra Lunar", "Disco Dubioso"]},
+    {"question": "¿Cuál es el stat base de HP de Blissey?", "correct": "255", "options": ["250", "255", "260"]},
+    {"question": "¿En qué ruta se captura a Beldum en Gen 3?", "correct": "Ruta 119", "options": ["Ruta 119", "Ruta 120", "Ruta 118"]},
+    {"question": "¿Cuál es la altura base de Celesteela en metros?", "correct": "9.2", "options": ["9.2", "7.5", "11.0"]},
+    {"question": "¿Qué Pokémon tiene el stat base de Sp. Def más bajo (legendario)?", "correct": "Deoxys", "options": ["Deoxys", "Mewtwo", "Groudon"]},
+    {"question": "¿Cuál es el stat base de ataque de Zacian Hero?", "correct": "130", "options": ["120", "130", "170"]},
+    {"question": "¿Cuánto pesa Cosmoem en kg?", "correct": "999.9", "options": ["999.9", "500.0", "1000.0"]},
+    {"question": "¿Cuál es la descripción de Mew en Pokédex Roja?", "correct": "Esquiva", "options": ["Esquiva", "Nuevo", "Genética"]},
 ]
 
 
 class TriviaView(discord.ui.View):
-    def __init__(self, correct_answer: str, trivia_id: int, options: list):
+    def __init__(self, correct_answer: str, trivia_id: int, options: list, difficulty: str):
         super().__init__(timeout=60)
         self.correct_answer = correct_answer
         self.trivia_id = trivia_id
         self.options = options
+        self.difficulty = difficulty
         self.responders = set()
 
     @discord.ui.button(label="A", style=discord.ButtonStyle.primary)
@@ -287,9 +146,10 @@ class TriviaView(discord.ui.View):
 
         selected_option = self.options[index]
         is_correct = selected_option == self.correct_answer
+        points = DIFFICULTY_CONFIG[self.difficulty]["points"]
 
         if is_correct:
-            db.update_score(interaction.user.id, TRIVIA_POINTS["correct"], interaction.user.display_name)
+            db.update_score(interaction.user.id, points, interaction.user.display_name)
             streak_change = db.update_trivia_stats(interaction.user.id, True, interaction.user.display_name)
             db.mark_trivia_answered(self.trivia_id, interaction.user.id)
             score = db.get_total_score(interaction.user.id)
@@ -301,11 +161,12 @@ class TriviaView(discord.ui.View):
                     await interaction.user.add_roles(role)
 
             embed = discord.Embed(
-                title="✅ ¡Correcto!",
+                title=f"✅ ¡Correcto! {DIFFICULTY_CONFIG[self.difficulty]['emoji']}",
                 description=f"La respuesta **{self.correct_answer}** es correcta.",
                 color=discord.Color.green(),
             )
-            embed.add_field(name="Puntos ganados", value=f"+{TRIVIA_POINTS['correct']}")
+            embed.add_field(name="Dificultad", value=DIFFICULTY_CONFIG[self.difficulty]["label"])
+            embed.add_field(name="Puntos ganados", value=f"+{points}")
             embed.add_field(name="Puntos totales", value=str(score))
             embed.add_field(name="Racha actual", value=f"{streak} 🔥")
             embed.set_footer(text="Solo tú puedes ver esta respuesta")
@@ -319,10 +180,11 @@ class TriviaView(discord.ui.View):
                     await interaction.user.remove_roles(role)
 
             embed = discord.Embed(
-                title="❌ Incorrecto",
+                title=f"❌ Incorrecto {DIFFICULTY_CONFIG[self.difficulty]['emoji']}",
                 description=f"Tu respuesta: **{selected_option}**\nLa correcta: **{self.correct_answer}**",
                 color=discord.Color.red(),
             )
+            embed.add_field(name="Dificultad", value=DIFFICULTY_CONFIG[self.difficulty]["label"])
             embed.set_footer(text="Solo tú puedes ver esta respuesta")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -412,6 +274,60 @@ class WeeklyQuizView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+TRUE_FALSE_QUESTIONS = [
+    {"question": "Pikachu es de tipo Eléctrico", "answer": True},
+    {"question": "Charizard es de tipo Dragón/Fuego", "answer": False},
+    {"question": "Mewtwo es un Pokémon legendario", "answer": True},
+    {"question": "Bulbasaur es de tipo Planta/Fuego", "answer": False},
+    {"question": "La Pokédex Nacional de Gen 1 tiene 151 Pokémon", "answer": True},
+    {"question": "Eevee evoluciona en 8 formas diferentes", "answer": True},
+    {"question": "Garchomp es de tipo Dragón/Lucha", "answer": False},
+    {"question": "Lucario es de tipo Acero/Lucha", "answer": True},
+    {"question": "Rayquaza es un Pokémon legendario de tipo Dragón/Volador", "answer": True},
+    {"question": "Gengar es de tipo Fantasma/Veneno", "answer": True},
+    {"question": "El Movimiento Hidroariete es de tipo Agua", "answer": True},
+    {"question": "Snorlax tiene la mayor defensa base de Gen 1", "answer": False},
+    {"question": "Blissey tiene más HP que Chansey", "answer": True},
+    {"question": "El Pokémon más alto es Wailord", "answer": True},
+    {"question": "Mew es de tipo Psíquico", "answer": True},
+    {"question": "Arceus es el Pokémon más fuerte de todos", "answer": False},
+    {"question": "Ditto puede transformarse en cualquier Pokémon", "answer": True},
+    {"question": "Shedinja tiene solo 1 PS", "answer": True},
+    {"question": "El Movimiento Terremote es de tipo Tierra", "answer": True},
+    {"question": "Gardevoir es de tipo Psíquico/Hada", "answer": True},
+    {"question": "Steelix es más pesado que Onix", "answer": True},
+    {"question": "El Movimiento Lanzallamas es de tipo Fuego", "answer": True},
+    {"question": "Palkia controla el espacio", "answer": True},
+    {"question": "Giratina controla el tiempo", "answer": False},
+    {"question": "Darkrai causa pesadillas", "answer": True},
+    {"question": "Cresselia es de tipo Psíquico", "answer": True},
+    {"question": "El Movimiento Psíquico es de tipo Psíquico", "answer": True},
+    {"question": "Scizor es de tipo Bicho/Acero", "answer": True},
+    {"question": "Tyranitar es de tipo Roca/Siniestro", "answer": True},
+    {"question": "Blaziken es de tipo Fuego/Lucha", "answer": True},
+    {"question": "Swampert es de tipo Agua/Tierra", "answer": True},
+    {"question": "Sceptile es de tipo Planta", "answer": True},
+    {"question": "El Movimiento Hoja Afilada es de tipo Planta", "answer": True},
+    {"question": "Metagross es de tipo Psíquico/Acero", "answer": True},
+    {"question": "Salamence es de tipo Dragón/Volador", "answer": True},
+    {"question": "Alakazam es de tipo Psíquico", "answer": True},
+    {"question": "Machamp es de tipo Lucha", "answer": True},
+    {"question": "Golem es de tipo Roca/Tierra", "answer": True},
+    {"question": "El Movimiento Surf es de tipo Agua", "answer": True},
+    {"question": "Dragonite es de tipo Dragón/Volador", "answer": True},
+    {"question": "El Movimiento Lanzallamas es de tipo Fuego", "answer": True},
+    {"question": "Blastoise es de tipo Agua", "answer": True},
+    {"question": "Venusaur es de tipo Planta/Veneno", "answer": True},
+    {"question": "Charizard es de tipo Fuego/Volador", "answer": True},
+    {"question": "El Movimiento Rayo es de tipo Eléctrico", "answer": True},
+    {"question": "El Movimiento Terremote es de tipo Tierra", "answer": True},
+    {"question": "El Movimiento Bofetada Lodo es de tipo Veneno", "answer": True},
+    {"question": "El Movimiento Aerial Ace es de tipo Volador", "answer": True},
+    {"question": "El Movimiento Colmillo Ígneo es de tipo Fuego", "answer": True},
+    {"question": "El Movimiento Danza Espada es de tipo Normal", "answer": True},
+]
+
+
 class Trivia(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -440,7 +356,8 @@ class Trivia(commands.Cog):
         if existing:
             return
 
-        questions = random.sample(TRUE_FALSE_QUESTIONS, 10)
+        from question_gen import get_weekly_questions
+        questions = get_weekly_questions(TRUE_FALSE_QUESTIONS, 10)
         week_key = now.strftime("%Y-W%W")
         db.save_weekly_quiz(questions, week_key)
 
@@ -474,27 +391,31 @@ class Trivia(commands.Cog):
             await ctx.send(embed=embed)
             return
 
-        trivia = random.choice(POKEMON_TRIVIA)
+        from question_gen import get_trivia_question
+
+        difficulty = random.choice(["easy", "medium", "hard"])
+        pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
+        trivia = get_trivia_question(difficulty, pool[difficulty])
         options = trivia["options"][:]
         random.shuffle(options)
 
         db.save_trivia_question(trivia["question"], trivia["correct"], options)
 
+        diff_config = DIFFICULTY_CONFIG[difficulty]
         embed = discord.Embed(
-            title="🎮 Trivia Pokémon del Día",
+            title=f"🎮 Trivia Pokémon del Día {diff_config['emoji']}",
             description=trivia["question"],
-            color=discord.Color.blue(),
+            color=diff_config["color"],
         )
+        embed.add_field(name="Dificultad", value=diff_config["label"])
+        embed.add_field(name="Puntos", value=str(diff_config["points"]))
         embed.add_field(name="A", value=options[0], inline=False)
         embed.add_field(name="B", value=options[1], inline=False)
         embed.add_field(name="C", value=options[2], inline=False)
         embed.set_footer(text="Tienes 60 segundos para responder.")
 
-        correct_index = options.index(trivia["correct"])
-        label = chr(65 + correct_index)
-
         daily = db.get_daily_trivia()
-        view = TriviaView(trivia["correct"], daily["id"], options)
+        view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
         await ctx.send(embed=embed, view=view)
 
     @app_commands.command(name="trivia", description="Juega la trivia Pokémon del día")
@@ -511,27 +432,31 @@ class Trivia(commands.Cog):
             await interaction.response.send_message(embed=embed)
             return
 
-        trivia = random.choice(POKEMON_TRIVIA)
+        from question_gen import get_trivia_question
+
+        difficulty = random.choice(["easy", "medium", "hard"])
+        pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
+        trivia = get_trivia_question(difficulty, pool[difficulty])
         options = trivia["options"][:]
         random.shuffle(options)
 
         db.save_trivia_question(trivia["question"], trivia["correct"], options)
 
+        diff_config = DIFFICULTY_CONFIG[difficulty]
         embed = discord.Embed(
-            title="🎮 Trivia Pokémon del Día",
+            title=f"🎮 Trivia Pokémon del Día {diff_config['emoji']}",
             description=trivia["question"],
-            color=discord.Color.blue(),
+            color=diff_config["color"],
         )
+        embed.add_field(name="Dificultad", value=diff_config["label"])
+        embed.add_field(name="Puntos", value=str(diff_config["points"]))
         embed.add_field(name="A", value=options[0], inline=False)
         embed.add_field(name="B", value=options[1], inline=False)
         embed.add_field(name="C", value=options[2], inline=False)
         embed.set_footer(text="Tienes 60 segundos para responder.")
 
-        correct_index = options.index(trivia["correct"])
-        label = chr(65 + correct_index)
-
         daily = db.get_daily_trivia()
-        view = TriviaView(trivia["correct"], daily["id"], options)
+        view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
         await interaction.response.send_message(embed=embed, view=view)
 
     @commands.command(name="leaderboard")
