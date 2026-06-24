@@ -8,11 +8,12 @@ if not DISCORD_TOKEN:
     except FileNotFoundError:
         pass
 
+TRIVIA_CHANNEL_ID = 1516733719191228416
 TRIVIA_CHANNEL_NAME = "🔴｜comandos-pokebot"
 RETO_CHANNEL_NAME = "retos-semanales"
 HALL_OF_FAME_CHANNEL_NAME = "hall-of-fame"
 
-TRIVIA_HOUR = 12
+TRIVIA_HOUR = 10
 TRIVIA_MINUTE = 0
 
 REWARD_ROLES = {
