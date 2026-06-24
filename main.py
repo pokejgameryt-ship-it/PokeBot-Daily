@@ -48,6 +48,8 @@ async def on_ready():
     print(f"✅ {bot.user} está online y listo para funcionar.")
     print(f"📊 Base de datos inicializada.")
     daily_trivia_task.start()
+    streak_reminder_task.start()
+    reset_stale_streaks_task.start()
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.playing,
@@ -238,6 +240,38 @@ async def daily_trivia_task():
 
 @daily_trivia_task.before_loop
 async def before_daily_trivia():
+    await bot.wait_until_ready()
+
+
+@tasks.loop(minutes=30)
+async def streak_reminder_task():
+    users = db.get_users_needing_reminder()
+    for user_data in users:
+        try:
+            user = await bot.fetch_user(user_data["user_id"])
+            if user:
+                await user.send(
+                    f"¡Hola {user_data['username']}! 🔥\n\n"
+                    f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
+                    f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
+                    f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
+                )
+        except Exception as e:
+            print(f"⚠️ No se pudo enviar DM a {user_data['username']}: {e}")
+
+
+@streak_reminder_task.before_loop
+async def before_streak_reminder():
+    await bot.wait_until_ready()
+
+
+@tasks.loop(hours=1)
+async def reset_stale_streaks_task():
+    db.reset_stale_streaks()
+
+
+@reset_stale_streaks_task.before_loop
+async def before_reset_stale_streaks():
     await bot.wait_until_ready()
 
 
