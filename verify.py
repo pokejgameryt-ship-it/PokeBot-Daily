@@ -263,11 +263,11 @@ class VerifyView(ui.View):
     async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(VerifyTwitchModal())
 
-    @ui.button(label="YouTube", style=discord.ButtonStyle.Red, emoji="🔴", custom_id="verify_youtube")
+    @ui.button(label="YouTube", style=discord.ButtonStyle.red, emoji="🔴", custom_id="verify_youtube")
     async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(VerifyYouTubeModal())
 
-    @ui.button(label="Discord (Auto)", style=discord.ButtonStyle.Primary, emoji="🔵", custom_id="verify_discord")
+    @ui.button(label="Discord (Auto)", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_discord")
     async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
         state = str(interaction.user.id)
         params = {
