@@ -177,49 +177,69 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
             elif conn["type"] == "youtube":
                 youtube_name = conn["name"]
 
+        print(f"[DEBUG] Conexiones: twitch={twitch_name}, youtube={youtube_name}")
+
+        verified = False
+        platform_used = None
+        username_used = None
+
         if twitch_name:
+            print(f"[DEBUG] Comprobando follow de Twitch: {twitch_name.lower()}")
             if check_twitch_follow(twitch_name.lower()):
-                db.create_user(interaction.user.id, interaction.user.display_name)
-                db.set_verified(interaction.user.id, True, "twitch", twitch_name.lower())
-                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-                if role:
-                    await interaction.user.add_roles(role)
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="✅ Verificado",
-                        description=f"Tu Twitch **{twitch_name}** sigue el canal.\n\nYa tienes el rol **Miembro**.",
-                        color=discord.Color.green(),
-                    ),
-                    ephemeral=True,
-                )
+                verified = True
+                platform_used = "twitch"
+                username_used = twitch_name.lower()
             else:
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="❌ Twitch no sigue el canal",
-                        description=f"Tu Twitch **{twitch_name}** no sigue el canal.\n\nSigue: **https://twitch.tv/pokejgamer**",
-                        color=discord.Color.red(),
-                    ),
-                    ephemeral=True,
-                )
-        elif youtube_name:
+                print(f"[DEBUG] Twitch follow falló para {twitch_name}")
+
+        if not verified and youtube_name:
+            print(f"[DEBUG] Comprobando suscripción de YouTube: {youtube_name}")
+            if check_youtube_subscription(youtube_name):
+                verified = True
+                platform_used = "youtube"
+                username_used = youtube_name
+            else:
+                print(f"[DEBUG] YouTube subscription falló para {youtube_name}")
+
+        if verified:
             db.create_user(interaction.user.id, interaction.user.display_name)
-            db.set_verified(interaction.user.id, True, "youtube", youtube_name)
+            db.set_verified(interaction.user.id, True, platform_used, username_used)
             role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
             if role:
                 await interaction.user.add_roles(role)
             await interaction.followup.send(
                 embed=discord.Embed(
                     title="✅ Verificado",
-                    description=f"Tu YouTube **{youtube_name}** está vinculado.\n\nYa tienes el rol **Miembro**.",
+                    description=f"Tu **{platform_used.title()}** **{username_used}** está verificado.\n\nYa tienes el rol **Miembro**.",
                     color=discord.Color.green(),
                 ),
                 ephemeral=True,
             )
         else:
+            desc = ""
+            if twitch_name and youtube_name:
+                desc = (
+                    f"Tu Twitch **{twitch_name}** no sigue el canal.\n"
+                    f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
+                    f"Sigue: **https://twitch.tv/pokejgamer**\n"
+                    f"Suscríbete: **https://youtube.com/@pokejgamer**"
+                )
+            elif twitch_name:
+                desc = (
+                    f"Tu Twitch **{twitch_name}** no sigue el canal.\n\n"
+                    f"Sigue: **https://twitch.tv/pokejgamer**"
+                )
+            elif youtube_name:
+                desc = (
+                    f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
+                    f"Suscríbete: **https://youtube.com/@pokejgamer**"
+                )
+            else:
+                desc = "No tienes Twitch o YouTube vinculado en Discord.\n\nVe a **Configuración de Discord → Conexiones** para vincularlos."
             await interaction.followup.send(
                 embed=discord.Embed(
-                    title="❌ No se encontró Twitch o YouTube",
-                    description="No tienes Twitch o YouTube vinculado en Discord.\n\nVe a **Configuración de Discord → Conexiones** para vincularlos.",
+                    title="❌ No verificado",
+                    description=desc,
                     color=discord.Color.red(),
                 ),
                 ephemeral=True,
@@ -430,22 +450,31 @@ class Verify(commands.Cog):
         )
 
 
-def check_youtube_subscription(channel_url: str) -> bool:
+def check_youtube_subscription(channel_name: str) -> bool:
     if not YOUTUBE_API_KEY:
+        print(f"[ERROR] No hay YOUTUBE_API_KEY configurada")
         return False
     channel_id = None
-    if "youtube.com/@" in channel_url:
-        handle = re.search(r"youtube\.com/@([a-zA-Z0-9_.-]+)", channel_url)
-        if handle:
-            resp = requests.get(
-                "https://www.googleapis.com/youtube/v3/channels",
-                params={"key": YOUTUBE_API_KEY, "forHandle": handle.group(1), "part": "id"},
-            )
-            if resp.status_code == 200:
-                items = resp.json().get("items", [])
-                if items:
-                    channel_id = items[0]["id"]
+    handle = None
+    if "youtube.com/@" in channel_name:
+        m = re.search(r"youtube\.com/@([a-zA-Z0-9_.-]+)", channel_name)
+        if m:
+            handle = m.group(1)
+    else:
+        handle = channel_name.lstrip("@")
+    if handle:
+        print(f"[DEBUG] YouTube handle: {handle}")
+        resp = requests.get(
+            "https://www.googleapis.com/youtube/v3/channels",
+            params={"key": YOUTUBE_API_KEY, "forHandle": handle, "part": "id"},
+        )
+        if resp.status_code == 200:
+            items = resp.json().get("items", [])
+            if items:
+                channel_id = items[0]["id"]
+                print(f"[DEBUG] YouTube channel_id: {channel_id}")
     if not channel_id:
+        print(f"[ERROR] No se pudo obtener channel_id de YouTube para: {channel_name}")
         return False
     resp = requests.get(
         "https://www.googleapis.com/youtube/v3/subscriptions",
@@ -458,8 +487,11 @@ def check_youtube_subscription(channel_url: str) -> bool:
         },
     )
     if resp.status_code != 200:
+        print(f"[ERROR] YouTube subscriptions API falló ({resp.status_code}): {resp.text}")
         return False
-    return len(resp.json().get("items", [])) > 0
+    result = len(resp.json().get("items", [])) > 0
+    print(f"[DEBUG] check_youtube_subscription({channel_name}): channel_id={channel_id}, target={YOUTUBE_CHANNEL_ID}, subscribed={result}")
+    return result
 
 
 async def setup(bot: commands.Bot):
