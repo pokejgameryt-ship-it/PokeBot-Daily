@@ -46,3 +46,7 @@ YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "UCY-yUwAx1C0ApRHWKdo8o0Q")
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1519386835514560734")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "r16QgnGBt_ujCZ6ZYvU_BQr43x6y5e3k")
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
