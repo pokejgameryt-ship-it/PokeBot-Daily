@@ -301,7 +301,9 @@ def get_active_reto() -> Optional[dict]:
     retos = _retos_ref().get() or {}
     for rid, data in retos.items():
         if data.get("active") == 1 and data.get("end_date", "") >= today:
-            return dict(data)
+            result = dict(data)
+            result["id"] = rid
+            return result
     return None
 
 
@@ -336,7 +338,9 @@ def get_daily_trivia() -> Optional[dict]:
     trivia = _daily_ref().get() or {}
     for tid, data in trivia.items():
         if data.get("created_at") == today:
-            return dict(data)
+            result = dict(data)
+            result["id"] = tid
+            return result
     return None
 
 
