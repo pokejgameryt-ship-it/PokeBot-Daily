@@ -13,6 +13,7 @@ from config import (
     YOUTUBE_API_KEY,
     YOUTUBE_CHANNEL_ID,
     MIEMBRO_ROLE_ID,
+    TWITCH_VIP_ROLE_ID,
     DISCORD_CLIENT_ID,
     DISCORD_REDIRECT_URI,
 )
@@ -116,6 +117,33 @@ def get_twitch_user_id(username: str) -> str:
         if users:
             return users[0]["id"]
     return None
+
+
+def get_twitch_vips() -> set:
+    token = _get_twitch_token()
+    if not token:
+        return set()
+    headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"}
+    cursor = ""
+    vips = set()
+    for _ in range(10):
+        params = {"broadcaster_id": TWITCH_BROADCASTER_ID, "first": 100}
+        if cursor:
+            params["after"] = cursor
+        resp = requests.get(
+            "https://api.twitch.tv/helix/channels/vips",
+            headers=headers,
+            params=params,
+        )
+        if resp.status_code != 200:
+            break
+        data = resp.json()
+        for v in data.get("data", []):
+            vips.add(v["user_id"])
+        cursor = data.get("pagination", {}).get("cursor", "")
+        if not cursor:
+            break
+    return vips
 
 
 def check_youtube_subscription(channel_url: str) -> bool:
@@ -300,10 +328,12 @@ class Verify(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.check_followers.start()
+        self.check_vips.start()
         self.bot.loop.create_task(self.initial_verify())
 
     def cog_unload(self):
         self.check_followers.cancel()
+        self.check_vips.cancel()
 
     async def initial_verify(self):
         await self.bot.wait_until_ready()
@@ -391,6 +421,40 @@ class Verify(commands.Cog):
 
     @check_followers.before_loop
     async def before_check_followers(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(minutes=5)
+    async def check_vips(self):
+        guild = self.bot.guilds[0] if self.bot.guilds else None
+        if not guild:
+            return
+        role = guild.get_role(TWITCH_VIP_ROLE_ID)
+        if not role:
+            return
+
+        twitch_vips = get_twitch_vips()
+        verified_users = db.get_all_verified_users()
+
+        for user_data in verified_users:
+            if user_data.get("platform") != "twitch":
+                continue
+            username = user_data.get("username")
+            if not username or username == "auto-detected":
+                continue
+            member = guild.get_member(user_data["user_id"])
+            if not member:
+                continue
+
+            twitch_id = get_twitch_user_id(username)
+            if twitch_id and twitch_id in twitch_vips:
+                if role not in member.roles:
+                    await member.add_roles(role)
+            else:
+                if role in member.roles:
+                    await member.remove_roles(role)
+
+    @check_vips.before_loop
+    async def before_check_vips(self):
         await self.bot.wait_until_ready()
 
     @commands.command(name="enviar-verificacion")
