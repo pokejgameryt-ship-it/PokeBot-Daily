@@ -75,33 +75,6 @@ def check_twitch_follow(username: str) -> bool:
     return len(resp.json().get("data", [])) > 0
 
 
-def get_twitch_followers() -> set:
-    token = _get_twitch_token()
-    if not token:
-        return set()
-    headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"}
-    cursor = ""
-    followers = set()
-    for _ in range(10):
-        params = {"broadcaster_id": TWITCH_BROADCASTER_ID, "first": 100}
-        if cursor:
-            params["after"] = cursor
-        resp = requests.get(
-            "https://api.twitch.tv/helix/channels/followers",
-            headers=headers,
-            params=params,
-        )
-        if resp.status_code != 200:
-            break
-        data = resp.json()
-        for f in data.get("data", []):
-            followers.add(f["user_id"])
-        cursor = data.get("pagination", {}).get("cursor", "")
-        if not cursor:
-            break
-    return followers
-
-
 def get_twitch_user_id(username: str) -> str:
     token = _get_twitch_token()
     if not token:
@@ -182,120 +155,11 @@ def check_youtube_subscription(channel_url: str) -> bool:
     return len(resp.json().get("items", [])) > 0
 
 
-def get_youtube_subscribers() -> set:
-    if not YOUTUBE_API_KEY:
-        return set()
-    subscribers = set()
-    page_token = ""
-    for _ in range(50):
-        params = {
-            "key": YOUTUBE_API_KEY,
-            "part": "snippet",
-            "channelId": YOUTUBE_CHANNEL_ID,
-            "maxResults": 50,
-        }
-        if page_token:
-            params["pageToken"] = page_token
-        resp = requests.get(
-            "https://www.googleapis.com/youtube/v3/subscriptions",
-            params=params,
-        )
-        if resp.status_code != 200:
-            break
-        data = resp.json()
-        for item in data.get("items", []):
-            subscribers.add(item["snippet"]["resourceId"]["channelId"])
-        page_token = data.get("nextPageToken", "")
-        if not page_token:
-            break
-    return subscribers
-
-
-class VerifyTwitchModal(ui.Modal, title="Verificar con Twitch"):
-    username = ui.TextInput(
-        label="Tu usuario de Twitch",
-        placeholder="Ej: pokejgameryt",
-        required=True,
-        max_length=25,
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        follows = check_twitch_follow(self.username.value.lower())
-        if follows:
-            db.create_user(interaction.user.id, interaction.user.display_name)
-            db.set_verified(interaction.user.id, True, "twitch", self.username.value.lower())
-            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await interaction.user.add_roles(role)
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="✅ Verificado con Twitch",
-                    description=f"¡Gracias por seguirme, **{self.username.value}**!\n\nYa tienes el rol **Miembro**.",
-                    color=discord.Color.green(),
-                ),
-                ephemeral=True,
-            )
-        else:
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="❌ No se encontró seguimiento",
-                    description=f"**{self.username.value}** no parece seguir el canal.\n\nAsegúrate de estar siguiendo: **https://twitch.tv/pokejgameryt**",
-                    color=discord.Color.red(),
-                ),
-                ephemeral=True,
-            )
-
-
-class VerifyYouTubeModal(ui.Modal, title="Verificar con YouTube"):
-    channel_url = ui.TextInput(
-        label="URL de tu canal de YouTube",
-        placeholder="Ej: https://youtube.com/@pokejgameryt",
-        required=True,
-        max_length=200,
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        subscribed = check_youtube_subscription(self.channel_url.value)
-        if subscribed:
-            db.create_user(interaction.user.id, interaction.user.display_name)
-            db.set_verified(interaction.user.id, True, "youtube", self.channel_url.value)
-            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await interaction.user.add_roles(role)
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="✅ Verificado con YouTube",
-                    description="¡Gracias por suscribirte!\n\nYa tienes el rol **Miembro**.",
-                    color=discord.Color.green(),
-                ),
-                ephemeral=True,
-            )
-        else:
-            await interaction.followup.send(
-                embed=discord.Embed(
-                    title="❌ No se encontró suscripción",
-                    description="Asegúrate de estar suscrito a **https://youtube.com/@pokejgameryt** con suscripción **pública**.",
-                    color=discord.Color.red(),
-                ),
-                ephemeral=True,
-            )
-
-
 class VerifyView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Twitch", style=discord.ButtonStyle.blurple, emoji="🟣", custom_id="verify_twitch")
-    async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(VerifyTwitchModal())
-
-    @ui.button(label="YouTube", style=discord.ButtonStyle.red, emoji="🔴", custom_id="verify_youtube")
-    async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(VerifyYouTubeModal())
-
-    @ui.button(label="Discord (Auto)", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_discord")
+    @ui.button(label="Verificar con Discord", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_discord")
     async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
         state = str(interaction.user.id)
         params = {
@@ -312,7 +176,8 @@ class VerifyView(ui.View):
                 "Haz clic en el enlace de abajo para autorizar y verificar tus conexiones.\n\n"
                 "**Requisitos:**\n"
                 "• Debes tener **Twitch** o **YouTube** vinculado en tu cuenta de Discord\n"
-                "• Ve a Configuración de Discord → Conexiones para vincularlos"
+                "• Ve a Configuración de Discord → Conexiones para vincularlos\n"
+                "• Tu suscripción/seguimiento debe ser **público**"
             ),
             color=discord.Color.blurple(),
         )
@@ -369,26 +234,7 @@ class Verify(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        if member.bot:
-            return
-        await asyncio.sleep(2)
-        role = member.guild.get_role(MIEMBRO_ROLE_ID)
-        if not role:
-            return
-        if check_twitch_follow(member.name.lower()):
-            db.create_user(member.id, member.display_name)
-            db.set_verified(member.id, True, "twitch", member.name.lower())
-            await member.add_roles(role)
-            try:
-                await member.send(
-                    embed=discord.Embed(
-                        title="✅ ¡Bienvenido! Verificado automáticamente",
-                        description="Te seguía en Twitch, así que ya tienes el rol **Miembro**. ¡Bienvenido al servidor!",
-                        color=discord.Color.green(),
-                    )
-                )
-            except:
-                pass
+        pass
 
     @tasks.loop(minutes=10)
     async def check_followers(self):
@@ -464,15 +310,17 @@ class Verify(commands.Cog):
             title="🔒 Verificación Requerida",
             description=(
                 "Para acceder al servidor, debes seguirme en **Twitch** o **YouTube**.\n\n"
-                "**¿Cómo funciona?**\n"
-                "1. Haz clic en el botón de tu plataforma\n"
-                "2. Introduce tu usuario o URL de canal\n"
-                "3. ¡Listo! Se te asignará el rol **Miembro**\n\n"
-                "⚠️ Asegúrate de que tu suscripción/seguimiento sea **público**."
+                "**¿Cómo verificar?**\n"
+                "1. Haz clic en el botón de abajo\n"
+                "2. Autoriza la app de Discord\n"
+                "3. ¡Listo! Se te asignará el rol automáticamente\n\n"
+                "**Requisitos:**\n"
+                "• Debes tener **Twitch** o **YouTube** vinculado en Discord\n"
+                "• Tu suscripción/seguimiento debe ser **pública**"
             ),
             color=discord.Color.blue(),
         )
-        embed.set_footer(text="Pulsa un botón para verificar")
+        embed.set_footer(text="Pulsa el botón para verificar")
         await ctx.send(embed=embed, view=VerifyView())
 
     @commands.command(name="verificar-todos")
@@ -523,38 +371,6 @@ class Verify(commands.Cog):
             f"🟢 Asignado: **{assigned}**\n"
             f"🔴 Quitado: **{removed}**"
         )
-
-    @commands.command(name="verificar-twitch")
-    async def verify_twitch_cmd(self, ctx: commands.Context, username: str = None):
-        if not username:
-            await ctx.send("Uso: `!verificar-twitch <usuario>`")
-            return
-        follows = check_twitch_follow(username.lower())
-        if follows:
-            db.create_user(ctx.author.id, ctx.author.display_name)
-            db.set_verified(ctx.author.id, True, "twitch", username.lower())
-            role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await ctx.author.add_roles(role)
-            await ctx.send(f"✅ **{username}** sigue el canal. ¡Rol asignado!")
-        else:
-            await ctx.send(f"❌ **{username}** no sigue el canal.")
-
-    @commands.command(name="verificar-youtube")
-    async def verify_youtube_cmd(self, ctx: commands.Context, url: str = None):
-        if not url:
-            await ctx.send("Uso: `!verificar-youtube <url>`")
-            return
-        subscribed = check_youtube_subscription(url)
-        if subscribed:
-            db.create_user(ctx.author.id, ctx.author.display_name)
-            db.set_verified(ctx.author.id, True, "youtube", url)
-            role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
-            if role:
-                await ctx.author.add_roles(role)
-            await ctx.send("✅ ¡Suscripción verificada! Rol asignado.")
-        else:
-            await ctx.send("❌ No se pudo verificar la suscripción.")
 
     @commands.command(name="verificar-discord")
     async def verify_discord_cmd(self, ctx: commands.Context):
@@ -618,7 +434,7 @@ class Verify(commands.Cog):
                         await ctx.send(
                             embed=discord.Embed(
                                 title="❌ Twitch no sigue el canal",
-                                description=f"Tu cuenta de Twitch **{twitch_name}** no sigue el canal.\n\nAsegúrate de seguir: **https://twitch.tv/pokejgameryt**",
+                                description=f"Tu cuenta de Twitch **{twitch_name}** no sigue el canal.\n\nAsegúrate de seguir: **https://twitch.tv/pokejgamer**",
                                 color=discord.Color.red(),
                             )
                         )
