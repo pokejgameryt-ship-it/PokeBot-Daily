@@ -1,6 +1,7 @@
 # Tokens y secretos
 .token
 *.token
+firebase-service-account.json
 
 # Entorno virtual
 venv/
