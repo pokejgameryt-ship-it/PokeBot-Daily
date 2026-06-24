@@ -337,7 +337,7 @@ def get_daily_trivia() -> Optional[dict]:
     today = datetime.now().date().isoformat()
     trivia = _daily_ref().get() or {}
     for tid, data in trivia.items():
-        if data.get("created_at") == today:
+        if data.get("created_at") == today and data.get("option1"):
             result = dict(data)
             result["id"] = tid
             return result
