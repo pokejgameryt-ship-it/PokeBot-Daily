@@ -4,6 +4,7 @@ from discord import ui
 import requests
 import re
 import time
+import asyncio
 from config import (
     TWITCH_CLIENT_ID,
     TWITCH_CLIENT_SECRET,
@@ -261,9 +262,65 @@ class Verify(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.check_followers.start()
+        self.bot.loop.create_task(self.initial_verify())
 
     def cog_unload(self):
         self.check_followers.cancel()
+
+    async def initial_verify(self):
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(5)
+        guild = self.bot.guilds[0] if self.bot.guilds else None
+        if not guild:
+            return
+        role = guild.get_role(MIEMBRO_ROLE_ID)
+        if not role:
+            return
+
+        verified_users = db.get_all_verified_users()
+        assigned = 0
+        for user_data in verified_users:
+            if user_data.get("platform") != "twitch":
+                continue
+            username = user_data.get("username")
+            if not username or username == "auto-detected":
+                continue
+            member = guild.get_member(user_data["user_id"])
+            if not member:
+                continue
+            if check_twitch_follow(username):
+                if role not in member.roles:
+                    await member.add_roles(role)
+                    assigned += 1
+            else:
+                if role in member.roles:
+                    await member.remove_roles(role)
+                    db.set_verified(member.id, False, None, None)
+        if assigned > 0:
+            print(f"[OK] Verificados {assigned} miembros existentes")
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        if member.bot:
+            return
+        await asyncio.sleep(2)
+        role = member.guild.get_role(MIEMBRO_ROLE_ID)
+        if not role:
+            return
+        if check_twitch_follow(member.name.lower()):
+            db.create_user(member.id, member.display_name)
+            db.set_verified(member.id, True, "twitch", member.name.lower())
+            await member.add_roles(role)
+            try:
+                await member.send(
+                    embed=discord.Embed(
+                        title="✅ ¡Bienvenido! Verificado automáticamente",
+                        description="Te seguía en Twitch, así que ya tienes el rol **Miembro**. ¡Bienvenido al servidor!",
+                        color=discord.Color.green(),
+                    )
+                )
+            except:
+                pass
 
     @tasks.loop(minutes=10)
     async def check_followers(self):
@@ -274,25 +331,25 @@ class Verify(commands.Cog):
         if not role:
             return
 
-        twitch_followers = get_twitch_followers()
         verified_users = db.get_all_verified_users()
-
-        for member in guild.members:
-            if member.bot:
+        for user_data in verified_users:
+            if user_data.get("platform") != "twitch":
                 continue
-            user_data = db.get_user(member.id)
-            verified = user_data.get("verified", False) if user_data else False
+            username = user_data.get("username")
+            if not username or username == "auto-detected":
+                continue
+            member = guild.get_member(user_data["user_id"])
+            if not member:
+                continue
 
-            if verified:
-                if member.id not in twitch_followers and member.id not in [v["user_id"] for v in verified_users if v.get("platform") == "youtube"]:
-                    if role in member.roles:
-                        await member.remove_roles(role)
-                        db.set_verified(member.id, False, None, None)
+            follows = check_twitch_follow(username)
+            if follows:
+                if role not in member.roles:
+                    await member.add_roles(role)
             else:
-                if member.id in twitch_followers:
-                    db.set_verified(member.id, True, "twitch", "auto-detected")
-                    if role not in member.roles:
-                        await member.add_roles(role)
+                if role in member.roles:
+                    await member.remove_roles(role)
+                    db.set_verified(member.id, False, None, None)
 
     @check_followers.before_loop
     async def before_check_followers(self):
@@ -315,6 +372,46 @@ class Verify(commands.Cog):
         )
         embed.set_footer(text="Pulsa un botón para verificar")
         await ctx.send(embed=embed, view=VerifyView())
+
+    @commands.command(name="verificar-todos")
+    @commands.has_permissions(administrator=True)
+    async def verify_all_members(self, ctx: commands.Context):
+        await ctx.send("⏳ Verificando miembros existentes...")
+        role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
+        if not role:
+            await ctx.send("❌ No se encontró el rol.")
+            return
+
+        verified_users = db.get_all_verified_users()
+        assigned = 0
+        removed = 0
+
+        for user_data in verified_users:
+            if user_data.get("platform") != "twitch":
+                continue
+            username = user_data.get("username")
+            if not username or username == "auto-detected":
+                continue
+            member = ctx.guild.get_member(user_data["user_id"])
+            if not member:
+                continue
+
+            follows = check_twitch_follow(username)
+            if follows:
+                if role not in member.roles:
+                    await member.add_roles(role)
+                    assigned += 1
+            else:
+                if role in member.roles:
+                    await member.remove_roles(role)
+                    db.set_verified(member.id, False, None, None)
+                    removed += 1
+
+        await ctx.send(
+            f"✅ Verificación completada.\n"
+            f"🟢 Asignado: **{assigned}**\n"
+            f"🔴 Quitado: **{removed}**"
+        )
 
     @commands.command(name="verificar-twitch")
     async def verify_twitch_cmd(self, ctx: commands.Context, username: str = None):
@@ -347,29 +444,6 @@ class Verify(commands.Cog):
             await ctx.send("✅ ¡Suscripción verificada! Rol asignado.")
         else:
             await ctx.send("❌ No se pudo verificar la suscripción.")
-
-    @commands.command(name="verificar-todos")
-    @commands.has_permissions(administrator=True)
-    async def verify_all_members(self, ctx: commands.Context):
-        await ctx.send("⏳ Verificando miembros existentes...")
-        role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
-        if not role:
-            await ctx.send("❌ No se encontró el rol.")
-            return
-
-        twitch_followers = get_twitch_followers()
-        assigned = 0
-        for member in ctx.guild.members:
-            if member.bot:
-                continue
-            if member.id in twitch_followers:
-                db.create_user(member.id, member.display_name)
-                db.set_verified(member.id, True, "twitch", "auto-detected")
-                if role not in member.roles:
-                    await member.add_roles(role)
-                    assigned += 1
-
-        await ctx.send(f"✅ Verificación completada. Se asignó el rol a **{assigned}** miembros.")
 
 
 async def setup(bot: commands.Bot):
