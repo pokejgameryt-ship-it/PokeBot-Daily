@@ -61,24 +61,24 @@ def check_twitch_follow(username: str) -> bool:
         params={"login": username},
     )
     if resp.status_code != 200:
-        log.error(f" Twitch users API falló ({resp.status_code}): {resp.text}")
+        log.error(f"Twitch users API falló ({resp.status_code}): {resp.text}")
         return False
     users = resp.json().get("data", [])
     if not users:
-        log.error(f" No se encontró el usuario de Twitch: {username}")
+        log.error(f"No se encontró el usuario de Twitch: {username}")
         return False
     user_id = users[0]["id"]
     resp = requests.get(
-        "https://api.twitch.tv/helix/users/follows",
+        "https://api.twitch.tv/helix/channels/followers",
         headers=headers,
-        params={"from_id": user_id, "to_id": TWITCH_BROADCASTER_ID},
+        params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
     )
     if resp.status_code != 200:
-        log.error(f" Twitch follows API falló ({resp.status_code}): {resp.text}")
+        log.error(f"Twitch followers API falló ({resp.status_code}): {resp.text}")
         return False
-    total = resp.json().get("total", 0)
-    log.info(f" check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, total={total}")
-    return total > 0
+    result = len(resp.json().get("data", [])) > 0
+    log.info(f"check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, follows={result}")
+    return result
 
 
 def get_twitch_user_id(username: str) -> str:
@@ -507,7 +507,7 @@ class Verify(commands.Cog):
 
 def check_youtube_subscription(channel_name: str) -> bool:
     if not YOUTUBE_API_KEY:
-        log.error(f" No hay YOUTUBE_API_KEY configurada")
+        log.warning("No hay YOUTUBE_API_KEY configurada")
         return False
     channel_id = None
     handle = None
@@ -518,18 +518,18 @@ def check_youtube_subscription(channel_name: str) -> bool:
     else:
         handle = channel_name.lstrip("@")
     if handle:
-        log.info(f" YouTube handle: {handle}")
+        log.info(f"YouTube handle: {handle}")
         resp = requests.get(
             "https://www.googleapis.com/youtube/v3/channels",
-            params={"key": YOUTUBE_API_KEY, "forHandle": handle, "part": "id"},
+            params={"key": YOUTUBE_API_KEY, "forHandle": handle, "part": "id,subscriberCount"},
         )
         if resp.status_code == 200:
             items = resp.json().get("items", [])
             if items:
                 channel_id = items[0]["id"]
-                log.info(f" YouTube channel_id: {channel_id}")
+                log.info(f"YouTube channel_id: {channel_id}")
     if not channel_id:
-        log.error(f" No se pudo obtener channel_id de YouTube para: {channel_name}")
+        log.error(f"No se pudo obtener channel_id de YouTube para: {channel_name}")
         return False
     resp = requests.get(
         "https://www.googleapis.com/youtube/v3/subscriptions",
@@ -542,10 +542,11 @@ def check_youtube_subscription(channel_name: str) -> bool:
         },
     )
     if resp.status_code != 200:
-        log.error(f" YouTube subscriptions API falló ({resp.status_code}): {resp.text}")
+        log.error(f"YouTube subscriptions API falló ({resp.status_code}): {resp.text}")
+        log.info("NOTA: YouTube subscriptions requiere OAuth2 para verificar suscripciones de otros usuarios")
         return False
     result = len(resp.json().get("items", [])) > 0
-    log.info(f" check_youtube_subscription({channel_name}): channel_id={channel_id}, target={YOUTUBE_CHANNEL_ID}, subscribed={result}")
+    log.info(f"check_youtube_subscription({channel_name}): channel_id={channel_id}, target={YOUTUBE_CHANNEL_ID}, subscribed={result}")
     return result
 
 
