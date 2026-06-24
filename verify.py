@@ -179,6 +179,22 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
 
         print(f"[DEBUG] Conexiones: twitch={twitch_name}, youtube={youtube_name}")
 
+        if interaction.user.id == interaction.guild.owner_id:
+            db.create_user(interaction.user.id, interaction.user.display_name)
+            db.set_verified(interaction.user.id, True, "owner", "owner")
+            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+            if role:
+                await interaction.user.add_roles(role)
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    title="✅ Verificado",
+                    description="Eres el owner, verificado automáticamente.",
+                    color=discord.Color.green(),
+                ),
+                ephemeral=True,
+            )
+            return
+
         verified = False
         platform_used = None
         username_used = None
