@@ -4,9 +4,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from datetime import datetime
 import database as db
-from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID
-
-STREAK_ROLE_ID = 1519370767106576514
+from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID, STREAK_ROLE_ID
 
 DIFFICULTY_CONFIG = {
     "easy": {"label": "Fácil", "emoji": "🟢", "points": 5, "color": discord.Color.green()},
