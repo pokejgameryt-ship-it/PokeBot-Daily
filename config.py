@@ -39,6 +39,7 @@ TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET", "")
 TWITCH_BROADCASTER_ID = os.getenv("TWITCH_BROADCASTER_ID", "1134721153")
 TWITCH_BROADCASTER_LOGIN = os.getenv("TWITCH_BROADCASTER_LOGIN", "pokejgamer")
+TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "UCY-yUwAx1C0ApRHWKdo8o0Q")
