@@ -287,3 +287,25 @@ def get_streak(user_id: int) -> int:
 def get_total_score(user_id: int) -> int:
     data = _users_ref().child(str(user_id)).get()
     return data.get("total_score", 0) if data else 0
+
+
+def set_verified(user_id: int, verified: bool, platform: str = None, username: str = None):
+    ref = _users_ref().child(str(user_id))
+    ref.update({
+        "verified": verified,
+        "verified_platform": platform,
+        "verified_username": username,
+    })
+
+
+def get_all_verified_users() -> list:
+    users = _users_ref().get() or {}
+    result = []
+    for uid, data in users.items():
+        if data.get("verified"):
+            result.append({
+                "user_id": int(uid),
+                "platform": data.get("verified_platform"),
+                "username": data.get("verified_username"),
+            })
+    return result
