@@ -5,7 +5,7 @@ import requests
 import re
 import time
 import asyncio
-import aiohttp
+import os
 from urllib.parse import urlencode
 from config import (
     TWITCH_CLIENT_ID,
@@ -16,10 +16,10 @@ from config import (
     MIEMBRO_ROLE_ID,
     TWITCH_VIP_ROLE_ID,
     DISCORD_CLIENT_ID,
-    DISCORD_CLIENT_SECRET,
     DISCORD_REDIRECT_URI,
 )
 import database as db
+from web_server import get_code, start_web_server
 
 _twitch_token = None
 _twitch_token_time = 0
@@ -125,10 +125,11 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        async with aiohttp.ClientSession() as session:
+        import aiohttp as _aiohttp
+        async with _aiohttp.ClientSession() as session:
             data = {
                 "client_id": DISCORD_CLIENT_ID,
-                "client_secret": DISCORD_CLIENT_SECRET,
+                "client_secret": os.getenv("DISCORD_CLIENT_SECRET", ""),
                 "grant_type": "authorization_code",
                 "code": self.code.value.strip(),
                 "redirect_uri": DISCORD_REDIRECT_URI,
@@ -455,6 +456,7 @@ def check_youtube_subscription(channel_url: str) -> bool:
 
 
 async def setup(bot: commands.Bot):
+    asyncio.create_task(start_web_server())
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyView())
     bot.add_view(CodeView())
