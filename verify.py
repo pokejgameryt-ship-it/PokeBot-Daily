@@ -22,6 +22,9 @@ from config import (
     DISCORD_CLIENT_ID,
     DISCORD_CLIENT_SECRET,
     DISCORD_REDIRECT_URI,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI,
 )
 import database as db
 from web_server import get_code, start_web_server
@@ -337,6 +340,198 @@ class CodeView(ui.View):
         await interaction.response.send_modal(CodeModal())
 
 
+class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
+    code = ui.TextInput(
+        label="Código de Google",
+        placeholder="Pega aquí el código de la URL después de autorizar",
+        required=True,
+        max_length=200,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        log.info(f"YouTubeCodeModal.on_submit iniciado por {interaction.user}")
+        try:
+            await interaction.response.defer(ephemeral=True)
+
+            code_value = self.code.value.strip()
+            log.info(f"YouTube código recibido: {code_value[:10]}...")
+
+            import aiohttp as _aiohttp
+            async with _aiohttp.ClientSession() as session:
+                data = {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "grant_type": "authorization_code",
+                    "code": code_value,
+                    "redirect_uri": GOOGLE_REDIRECT_URI,
+                }
+                async with session.post("https://oauth2.googleapis.com/token", data=data) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"Google token response: {resp.status} - {resp_text[:200]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Código inválido",
+                                description=f"Error de Google: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    token_data = await resp.json()
+                    access_token = token_data["access_token"]
+
+                headers = {"Authorization": f"Bearer {access_token}"}
+                params = {
+                    "part": "snippet",
+                    "forChannelId": YOUTUBE_CHANNEL_ID,
+                    "mine": "true",
+                    "maxResults": 5,
+                }
+                async with session.get(
+                    "https://www.googleapis.com/youtube/v3/subscriptions",
+                    headers=headers,
+                    params=params,
+                ) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"YouTube subscriptions response: {resp.status} - {resp_text[:300]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Error al verificar",
+                                description=f"Error de YouTube: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    data = await resp.json()
+                    items = data.get("items", [])
+                    log.info(f"YouTube subscription items: {len(items)}")
+
+            if items:
+                db.create_user(interaction.user.id, interaction.user.display_name)
+                db.set_verified(interaction.user.id, True, "youtube", "youtube-verified")
+                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+                if role:
+                    await interaction.user.add_roles(role)
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="✅ Verificado por YouTube",
+                        description="Estás suscrito a mi canal.\n\nYa tienes el rol **Miembro**.",
+                        color=discord.Color.green(),
+                    ),
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ No estás suscrito",
+                        description="No estás suscrito a mi canal de YouTube.\n\nSuscríbete: **https://youtube.com/@pokejgamer**",
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+        except Exception as e:
+            log.exception(f"Error en YouTubeCodeModal.on_submit: {e}")
+            try:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="❌ Error interno",
+                        description=f"Error: {e}",
+                        color=discord.Color.red(),
+                    ),
+                    ephemeral=True,
+                )
+            except:
+                pass
+
+
+class YouTubeCodeView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Pegar código YouTube", style=discord.ButtonStyle.red, emoji="📋", custom_id="paste_yt_code_btn")
+    async def paste_code(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(YouTubeCodeModal())
+
+
+class YouTubeVerifyView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_youtube_v1")
+    async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
+        params = {
+            "client_id": GOOGLE_CLIENT_ID,
+            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "https://www.googleapis.com/auth/youtube.readonly",
+            "access_type": "offline",
+        }
+        url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
+        embed = discord.Embed(
+            title="▶️ Verificar con YouTube",
+            description=(
+                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
+                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
+                f"**Paso 3:** Haz clic en el botón **📋 Pegar código YouTube** de abajo y pégalo\n\n"
+                f"**[Clic aquí para autorizar]({url})**"
+            ),
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
+
+
+class VerifyMainView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Verificar con Discord", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_main_discord")
+    async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
+        redirect = DISCORD_REDIRECT_URI
+        params = {
+            "client_id": DISCORD_CLIENT_ID,
+            "redirect_uri": redirect,
+            "response_type": "code",
+            "scope": "identify connections",
+        }
+        url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
+        embed = discord.Embed(
+            title="🔗 Verificar con Discord",
+            description=(
+                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
+                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
+                f"**Paso 3:** Haz clic en el botón **📋 Pegar código** de abajo y pégalo\n\n"
+                f"**[Clic aquí para autorizar]({url})**"
+            ),
+            color=discord.Color.blurple(),
+        )
+        await interaction.response.send_message(embed=embed, view=CodeView(), ephemeral=True)
+
+    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube")
+    async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
+        params = {
+            "client_id": GOOGLE_CLIENT_ID,
+            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "https://www.googleapis.com/auth/youtube.readonly",
+            "access_type": "offline",
+        }
+        url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
+        embed = discord.Embed(
+            title="▶️ Verificar con YouTube",
+            description=(
+                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
+                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
+                f"**Paso 3:** Haz clic en el botón **📋 Pegar código YouTube** de abajo y pégalo\n\n"
+                f"**[Clic aquí para autorizar]({url})**"
+            ),
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
+
+
 class Verify(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -449,10 +644,13 @@ class Verify(commands.Cog):
             description=(
                 "Para acceder al servidor, debes seguirme en **Twitch** o **YouTube**.\n\n"
                 "**¿Cómo verificar?**\n"
-                "1. Haz clic en el botón de abajo\n"
-                "2. Autoriza la app de Discord\n"
+                "1. Haz clic en uno de los botones de abajo\n"
+                "2. Autoriza la app\n"
                 "3. Copia el código de la URL\n"
-                "4. Pega el código aquí\n\n"
+                "4. Pega el código en el botón que aparece\n\n"
+                "**Opciones:**\n"
+                "🔵 **Discord** → Verifica si tu Twitch/YouTube vinculado sigue el canal\n"
+                "▶️ **YouTube** → Verifica directamente con tu cuenta de Google\n\n"
                 "**Requisitos:**\n"
                 "• Debes tener **Twitch** o **YouTube** vinculado en Discord\n"
                 "• Tu suscripción/seguimiento debe ser **pública**"
@@ -460,7 +658,7 @@ class Verify(commands.Cog):
             color=discord.Color.blue(),
         )
         embed.set_footer(text="Pulsa el botón para verificar")
-        await ctx.send(embed=embed, view=VerifyView())
+        await ctx.send(embed=embed, view=VerifyMainView())
 
     @commands.command(name="verificar-todos")
     @commands.has_permissions(administrator=True)
@@ -555,3 +753,6 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyView())
     bot.add_view(CodeView())
+    bot.add_view(VerifyMainView())
+    bot.add_view(YouTubeCodeView())
+    bot.add_view(YouTubeVerifyView())
