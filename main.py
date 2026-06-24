@@ -1,7 +1,10 @@
 import sys
 import io
 import asyncio
+import logging
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
 
 import discord
 from discord.ext import commands, tasks
