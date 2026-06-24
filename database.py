@@ -153,8 +153,63 @@ def get_users_needing_reminder():
                     "user_id": int(uid),
                     "username": data.get("username", "Unknown"),
                     "current_streak": streak,
-                })
+            })
     return result
+
+
+def _weekly_quiz_ref():
+    return db.reference("weekly_quiz")
+
+
+def save_weekly_quiz(questions: list, week_key: str):
+    ref = _weekly_quiz_ref().child(week_key)
+    ref.set({
+        "questions": questions,
+        "created_at": datetime.now().isoformat(),
+        "active": True,
+    })
+
+
+def get_active_weekly_quiz() -> Optional[dict]:
+    quizzes = _weekly_quiz_ref().get() or {}
+    for qid, data in quizzes.items():
+        if data.get("active"):
+            return {"id": qid, **data}
+    return None
+
+
+def save_weekly_quiz_answer(week_key: str, user_id: int, answers: list, score: int, username: str):
+    ref = _weekly_quiz_ref().child(week_key).child("answers").child(str(user_id))
+    ref.set({
+        "answers": answers,
+        "score": score,
+        "username": username,
+        "answered_at": datetime.now().isoformat(),
+    })
+
+
+def get_weekly_quiz_answers(week_key: str) -> dict:
+    ref = _weekly_quiz_ref().child(week_key).child("answers")
+    return ref.get() or {}
+
+
+def close_weekly_quiz(week_key: str):
+    ref = _weekly_quiz_ref().child(week_key)
+    ref.update({"active": False})
+
+
+def get_weekly_quiz_leaderboard(week_key: str, limit: int = 10) -> list:
+    answers = get_weekly_quiz_answers(week_key)
+    results = []
+    for uid, data in answers.items():
+        results.append({
+            "user_id": int(uid),
+            "username": data.get("username", "Unknown"),
+            "score": data.get("score", 0),
+            "answered_at": data.get("answered_at", ""),
+        })
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:limit]
 
 
 def reset_stale_streaks():
