@@ -290,17 +290,19 @@ def update_trivia_stats(user_id: int, correct: bool, username: str = "Unknown"):
                 cursor.execute(
                     """UPDATE users SET 
                        trivia_total = trivia_total + 1,
-                       current_streak = 0
+                       current_streak = 0,
+                       last_trivia_date = %s
                        WHERE user_id = %s""",
-                    (user_id,),
+                    (today, user_id),
                 )
             else:
                 cursor.execute(
                     """UPDATE users SET 
                        trivia_total = trivia_total + 1,
-                       current_streak = 0
+                       current_streak = 0,
+                       last_trivia_date = ?
                        WHERE user_id = ?""",
-                    (user_id,),
+                    (today, user_id),
                 )
         conn.commit()
         conn.close()
