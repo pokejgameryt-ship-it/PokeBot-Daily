@@ -11,6 +11,7 @@ from config import (
     TWITCH_CLIENT_ID,
     TWITCH_CLIENT_SECRET,
     TWITCH_BROADCASTER_ID,
+    TWITCH_BROADCASTER_LOGIN,
     YOUTUBE_API_KEY,
     YOUTUBE_CHANNEL_ID,
     MIEMBRO_ROLE_ID,
@@ -200,22 +201,34 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
         username_used = None
 
         if twitch_name:
-            print(f"[DEBUG] Comprobando follow de Twitch: {twitch_name.lower()}")
-            if check_twitch_follow(twitch_name.lower()):
+            if twitch_name.lower() == TWITCH_BROADCASTER_LOGIN.lower():
+                print(f"[DEBUG] Twitch es el broadcaster, auto-verificado")
                 verified = True
                 platform_used = "twitch"
                 username_used = twitch_name.lower()
             else:
-                print(f"[DEBUG] Twitch follow falló para {twitch_name}")
+                print(f"[DEBUG] Comprobando follow de Twitch: {twitch_name.lower()}")
+                if check_twitch_follow(twitch_name.lower()):
+                    verified = True
+                    platform_used = "twitch"
+                    username_used = twitch_name.lower()
+                else:
+                    print(f"[DEBUG] Twitch follow falló para {twitch_name}")
 
         if not verified and youtube_name:
-            print(f"[DEBUG] Comprobando suscripción de YouTube: {youtube_name}")
-            if check_youtube_subscription(youtube_name):
+            if youtube_name.lower() == YOUTUBE_CHANNEL_ID.lower() or youtube_name.lstrip("@").lower() == "pokejgamer":
+                print(f"[DEBUG] YouTube es el canal, auto-verificado")
                 verified = True
                 platform_used = "youtube"
                 username_used = youtube_name
             else:
-                print(f"[DEBUG] YouTube subscription falló para {youtube_name}")
+                print(f"[DEBUG] Comprobando suscripción de YouTube: {youtube_name}")
+                if check_youtube_subscription(youtube_name):
+                    verified = True
+                    platform_used = "youtube"
+                    username_used = youtube_name
+                else:
+                    print(f"[DEBUG] YouTube subscription falló para {youtube_name}")
 
         if verified:
             db.create_user(interaction.user.id, interaction.user.display_name)
