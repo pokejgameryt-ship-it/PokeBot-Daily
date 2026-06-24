@@ -65,16 +65,16 @@ def check_twitch_follow(username: str) -> bool:
         return False
     user_id = users[0]["id"]
     resp = requests.get(
-        "https://api.twitch.tv/helix/channels/followers",
+        "https://api.twitch.tv/helix/users/follows",
         headers=headers,
-        params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
+        params={"from_id": user_id, "to_id": TWITCH_BROADCASTER_ID},
     )
     if resp.status_code != 200:
-        print(f"[ERROR] Twitch followers API falló ({resp.status_code}): {resp.text}")
+        print(f"[ERROR] Twitch follows API falló ({resp.status_code}): {resp.text}")
         return False
-    result = len(resp.json().get("data", [])) > 0
-    print(f"[DEBUG] check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, follows={result}")
-    return result
+    total = resp.json().get("total", 0)
+    print(f"[DEBUG] check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, total={total}")
+    return total > 0
 
 
 def get_twitch_user_id(username: str) -> str:
