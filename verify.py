@@ -408,7 +408,7 @@ class Verify(commands.Cog):
     @commands.command(name="verificar-todos")
     @commands.has_permissions(administrator=True)
     async def verify_all_members(self, ctx: commands.Context):
-        await ctx.send("⏳ Verificando miembros existentes...")
+        await ctx.send("⏳ Verificando miembros del servidor...")
         role = ctx.guild.get_role(MIEMBRO_ROLE_ID)
         if not role:
             await ctx.send("❌ No se encontró el rol.")
@@ -417,18 +417,26 @@ class Verify(commands.Cog):
         verified_users = db.get_all_verified_users()
         assigned = 0
         removed = 0
+        checked = 0
 
         for user_data in verified_users:
-            if user_data.get("platform") != "twitch":
-                continue
+            platform = user_data.get("platform")
             username = user_data.get("username")
             if not username or username == "auto-detected":
                 continue
+
             member = ctx.guild.get_member(user_data["user_id"])
             if not member:
                 continue
 
-            follows = check_twitch_follow(username)
+            checked += 1
+            follows = False
+
+            if platform == "twitch":
+                follows = check_twitch_follow(username)
+            elif platform == "youtube":
+                follows = check_youtube_subscription(username)
+
             if follows:
                 if role not in member.roles:
                     await member.add_roles(role)
@@ -441,6 +449,7 @@ class Verify(commands.Cog):
 
         await ctx.send(
             f"✅ Verificación completada.\n"
+            f"📊 Revisados: **{checked}** usuarios verificados\n"
             f"🟢 Asignado: **{assigned}**\n"
             f"🔴 Quitado: **{removed}**"
         )
