@@ -63,6 +63,7 @@ def callback():
         "username": user_data.get("username"),
         "connections": connections,
     }
+    print(f"[DEBUG] Stored verification for state={state}, user={user_data.get('username')}, connections={len(connections)}")
 
     twitch = None
     youtube = None
@@ -87,7 +88,9 @@ def callback():
 
 
 def get_verification(user_id: str) -> dict:
-    return pending_verifications.pop(user_id, None)
+    result = pending_verifications.pop(user_id, None)
+    print(f"[DEBUG] get_verification({user_id}): {result}")
+    return result
 
 
 def start_oauth_server():
