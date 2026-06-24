@@ -234,11 +234,14 @@ class VerifyView(ui.View):
         }
         url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
         embed = discord.Embed(
-            title="🔗 Paso 1: Autoriza la app",
+            title="🔗 Verificar con Discord",
             description=(
-                f"1. Haz clic en el enlace de abajo\n"
-                f"2. Copia el **código** de la URL (después de `?code=`)\n"
-                f"3. Vuelve aquí y pega el código en el botón de abajo\n\n"
+                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
+                f"**Paso 2:** El navegador dirá *"No se puede acceder"*, eso es normal.\n"
+                f"Mira la **barra de direcciones** del navegador, verás algo así:\n\n"
+                f"`http://127.0.0.1?code=AQUI_ESTA_EL_CODIGO`\n\n"
+                f"**Paso 3:** Copia solo la parte del código (lo que va después de `?code=`)\n\n"
+                f"**Paso 4:** Haz clic en el botón **📋 Pegar código** de abajo y pégalo\n\n"
                 f"**[Clic aquí para autorizar]({url})**"
             ),
             color=discord.Color.blurple(),
