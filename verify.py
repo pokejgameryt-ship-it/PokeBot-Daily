@@ -62,8 +62,9 @@ def check_twitch_follow(username: str) -> bool:
     resp = requests.get(
         "https://api.twitch.tv/helix/users",
         headers=headers,
-        params={"login": username},
+        params={"login": username.lower()},
     )
+    log.info(f"Twitch users API: status={resp.status_code}, response={resp.text[:300]}")
     if resp.status_code != 200:
         log.error(f"Twitch users API falló ({resp.status_code}): {resp.text}")
         return False
@@ -72,11 +73,13 @@ def check_twitch_follow(username: str) -> bool:
         log.error(f"No se encontró el usuario de Twitch: {username}")
         return False
     user_id = users[0]["id"]
+    log.info(f"Twitch user found: {username} -> id={user_id}")
     resp = requests.get(
         "https://api.twitch.tv/helix/channels/followers",
         headers=headers,
         params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
     )
+    log.info(f"Twitch followers API: status={resp.status_code}, response={resp.text[:300]}")
     if resp.status_code != 200:
         log.error(f"Twitch followers API falló ({resp.status_code}): {resp.text}")
         return False
@@ -143,6 +146,19 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
             await interaction.response.defer(ephemeral=True)
 
             code_value = self.code.value.strip()
+
+            if "code=" in code_value:
+                import re
+                match = re.search(r'code=([^&]+)', code_value)
+                if match:
+                    code_value = match.group(1)
+                    log.info(f"Extracted code from URL: {code_value[:10]}...")
+
+            if "/" in code_value and not code_value.startswith("http"):
+                parts = code_value.split("/")
+                code_value = parts[-1]
+                log.info(f"Extracted code from path: {code_value[:10]}...")
+
             log.info(f"Código recibido: {code_value[:10]}...")
 
             import aiohttp as _aiohttp
@@ -355,6 +371,14 @@ class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
             await interaction.response.defer(ephemeral=True)
 
             code_value = self.code.value.strip()
+
+            if "code=" in code_value:
+                import re
+                match = re.search(r'code=([^&]+)', code_value)
+                if match:
+                    code_value = match.group(1)
+                    log.info(f"Extracted YouTube code from URL: {code_value[:10]}...")
+
             log.info(f"YouTube código recibido: {code_value[:10]}...")
 
             import aiohttp as _aiohttp
@@ -471,6 +495,14 @@ class TwitchCodeModal(ui.Modal, title="Pega el código de Twitch"):
             await interaction.response.defer(ephemeral=True)
 
             code_value = self.code.value.strip()
+
+            if "code=" in code_value:
+                import re
+                match = re.search(r'code=([^&]+)', code_value)
+                if match:
+                    code_value = match.group(1)
+                    log.info(f"Extracted Twitch code from URL: {code_value[:10]}...")
+
             log.info(f"Twitch código recibido: {code_value[:10]}...")
 
             import aiohttp as _aiohttp
