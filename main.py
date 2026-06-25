@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(
 
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import database as db
 from config import (
     DISCORD_TOKEN,
@@ -19,6 +19,8 @@ from config import (
     REWARD_ROLES,
     STREAK_ROLE_ID,
 )
+
+TZ_SPAIN = timezone(timedelta(hours=2))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -134,53 +136,62 @@ async def dar_miembros_command(ctx: commands.Context):
 
 @tasks.loop(minutes=1)
 async def daily_trivia_task():
-    now = datetime.now()
+    now = datetime.now(TZ_SPAIN)
     if now.hour != TRIVIA_HOUR or now.minute != TRIVIA_MINUTE:
         return
 
-    guild = bot.guilds[0] if bot.guilds else None
-    if not guild:
-        return
+    try:
+        guild = bot.guilds[0] if bot.guilds else None
+        if not guild:
+            return
 
-    channel = guild.get_channel(TRIVIA_CHANNEL_ID)
-    if not channel:
-        return
+        channel = guild.get_channel(TRIVIA_CHANNEL_ID)
+        if not channel:
+            return
 
-    from trivia import TriviaView, TRIVIA_EASY, TRIVIA_MEDIUM, TRIVIA_HARD, DIFFICULTY_CONFIG
-    from question_gen import get_trivia_question
-    import random
+        from trivia import TriviaView, TRIVIA_EASY, TRIVIA_MEDIUM, TRIVIA_HARD, DIFFICULTY_CONFIG
+        from question_gen import get_trivia_question
+        import random
 
-    difficulty = random.choice(["easy", "medium", "hard"])
-    pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
-    trivia = get_trivia_question(difficulty, pool[difficulty])
-    options = trivia["options"][:]
-    random.shuffle(options)
+        difficulty = random.choice(["easy", "medium", "hard"])
+        pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
+        trivia = get_trivia_question(difficulty, pool[difficulty])
+        if not trivia:
+            logging.error("get_trivia_question returned None")
+            return
 
-    db.save_trivia_question(trivia["question"], trivia["correct"], options)
+        options = trivia["options"][:]
+        random.shuffle(options)
 
-    daily = db.get_daily_trivia()
-    diff_config = DIFFICULTY_CONFIG[difficulty]
+        db.save_trivia_question(trivia["question"], trivia["correct"], options)
 
-    greeting = "Buenos días entrenadores"
-    if now.weekday() == 0:
-        greeting = "Buenos días entrenadores 🎉 ¡Es lunes! Hoy toca trivia + ranking de la semana"
+        daily = db.get_daily_trivia()
+        if not daily:
+            logging.error("get_daily_trivia returned None after save")
+            return
 
-    embed = discord.Embed(
-        title=f"🎯 {greeting} {diff_config['emoji']}",
-        description=f"**{trivia['question']}**",
-        color=diff_config["color"],
-    )
-    embed.add_field(name="Dificultad", value=diff_config["label"])
-    embed.add_field(name="Puntos", value=str(diff_config["points"]))
-    embed.add_field(name="A", value=options[0], inline=False)
-    embed.add_field(name="B", value=options[1], inline=False)
-    embed.add_field(name="C", value=options[2], inline=False)
-    embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
+        diff_config = DIFFICULTY_CONFIG[difficulty]
 
-    view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
-    await channel.send(embed=embed, view=view)
+        greeting = "Buenos días entrenadores"
+        if now.weekday() == 0:
+            greeting = "Buenos días entrenadores 🎉 ¡Es lunes! Hoy toca trivia + ranking de la semana"
 
-    if now.weekday() == 0:
+        embed = discord.Embed(
+            title=f"🎯 {greeting} {diff_config['emoji']}",
+            description=f"**{trivia['question']}**",
+            color=diff_config["color"],
+        )
+        embed.add_field(name="Dificultad", value=diff_config["label"])
+        embed.add_field(name="Puntos", value=str(diff_config["points"]))
+        embed.add_field(name="A", value=options[0], inline=False)
+        embed.add_field(name="B", value=options[1], inline=False)
+        embed.add_field(name="C", value=options[2], inline=False)
+        embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
+
+        view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
+        await channel.send(embed=embed, view=view)
+
+        if now.weekday() == 0:
         await asyncio.sleep(2)
 
         leaders = db.get_leaderboard(10)
@@ -232,6 +243,9 @@ async def daily_trivia_task():
                     inline=False,
                 )
             await channel.send(embed=embed_streak)
+
+    except Exception as e:
+        logging.exception(f"Error in daily_trivia_task: {e}")
 
 
 @daily_trivia_task.before_loop

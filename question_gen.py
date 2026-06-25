@@ -98,7 +98,10 @@ def generate_question(difficulty: str) -> dict | None:
             "temperature": 0.9,
             "max_tokens": 300,
         }
+        log.info(f"Generating {difficulty} question via OpenRouter...")
+        log.info(f"API key set: {bool(OPENROUTER_API_KEY)}")
         resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
+        log.info(f"OpenRouter response: {resp.status_code}")
         if resp.status_code != 200:
             log.error(f"OpenRouter API error: {resp.status_code} - {resp.text[:200]}")
             return None

@@ -399,6 +399,9 @@ class Trivia(commands.Cog):
         difficulty = random.choice(["easy", "medium", "hard"])
         pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
         trivia = get_trivia_question(difficulty, pool[difficulty])
+        if not trivia:
+            await ctx.send("❌ No se pudo generar la pregunta. Inténtalo de nuevo.")
+            return
         options = trivia["options"][:]
         random.shuffle(options)
 
@@ -445,6 +448,9 @@ class Trivia(commands.Cog):
         difficulty = random.choice(["easy", "medium", "hard"])
         pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
         trivia = get_trivia_question(difficulty, pool[difficulty])
+        if not trivia:
+            await interaction.response.send_message("❌ No se pudo generar la pregunta. Inténtalo de nuevo.")
+            return
         options = trivia["options"][:]
         random.shuffle(options)
 
