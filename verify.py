@@ -518,30 +518,8 @@ class Verify(commands.Cog):
 
     @tasks.loop(minutes=10)
     async def check_followers(self):
-        guild = self.bot.guilds[0] if self.bot.guilds else None
-        if not guild:
-            return
-        role = guild.get_role(MIEMBRO_ROLE_ID)
-        if not role:
-            return
-        verified_users = db.get_all_verified_users()
-        for user_data in verified_users:
-            if user_data.get("platform") != "twitch":
-                continue
-            username = user_data.get("username")
-            if not username or username == "auto-detected":
-                continue
-            member = guild.get_member(user_data["user_id"])
-            if not member:
-                continue
-            follows = check_twitch_follow(username)
-            if follows:
-                if role not in member.roles:
-                    await member.add_roles(role)
-            else:
-                if role in member.roles:
-                    await member.remove_roles(role)
-                    db.set_verified(member.id, False, None, None)
+        log.info("check_followers desactivado (necesita token de usuario para verificar follows)")
+        return
 
     @check_followers.before_loop
     async def before_check_followers(self):

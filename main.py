@@ -89,15 +89,14 @@ async def on_member_update(before, after):
     if before.roles == after.roles:
         return
     role_verificado = after.guild.get_role(ROLE_VERIFICADO)
-    role_miembro = after.guild.get_role(ROLE_MIEMBRO)
     role_combo = after.guild.get_role(ROLE_COMBO)
-    if not role_verificado or not role_miembro or not role_combo:
+    if not role_verificado or not role_combo:
         return
-    has_both = role_verificado in after.roles and role_miembro in after.roles
+    has_verificado = role_verificado in after.roles
     has_combo = role_combo in after.roles
-    if has_both and not has_combo:
+    if has_verificado and not has_combo:
         await after.add_roles(role_combo)
-    elif not has_both and has_combo:
+    elif not has_verificado and has_combo:
         await after.remove_roles(role_combo)
 
 
