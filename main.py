@@ -192,57 +192,57 @@ async def daily_trivia_task():
         await channel.send(embed=embed, view=view)
 
         if now.weekday() == 0:
-        await asyncio.sleep(2)
+            await asyncio.sleep(2)
 
-        leaders = db.get_leaderboard(10)
-        if leaders:
-            embed_global = discord.Embed(
-                title="🏆 Ranking Global de Puntos",
-                description="Los miembros más activos del servidor",
-                color=discord.Color.gold(),
-            )
-            medals = ["🥇", "🥈", "🥉"]
-            for i, user in enumerate(leaders):
-                medal = medals[i] if i < 3 else f"#{i+1}"
-                embed_global.add_field(
-                    name=f"{medal} {user['username']}",
-                    value=f"{user['total_score']} pts | Trivia: {user['trivia_correct']}/{user['trivia_total']}",
-                    inline=False,
+            leaders = db.get_leaderboard(10)
+            if leaders:
+                embed_global = discord.Embed(
+                    title="🏆 Ranking Global de Puntos",
+                    description="Los miembros más activos del servidor",
+                    color=discord.Color.gold(),
                 )
-            await channel.send(embed=embed_global)
+                medals = ["🥇", "🥈", "🥉"]
+                for i, user in enumerate(leaders):
+                    medal = medals[i] if i < 3 else f"#{i+1}"
+                    embed_global.add_field(
+                        name=f"{medal} {user['username']}",
+                        value=f"{user['total_score']} pts | Trivia: {user['trivia_correct']}/{user['trivia_total']}",
+                        inline=False,
+                    )
+                await channel.send(embed=embed_global)
 
-        trivia_leaders = db.get_trivia_leaderboard(10)
-        if trivia_leaders:
-            embed_trivia = discord.Embed(
-                title="🧠 Ranking Trivia Semanal",
-                description="Los mejores en trivia esta semana",
-                color=discord.Color.purple(),
-            )
-            for i, user in enumerate(trivia_leaders):
-                medal = medals[i] if i < 3 else f"#{i+1}"
-                accuracy = user["accuracy"]
-                embed_trivia.add_field(
-                    name=f"{medal} {user['username']}",
-                    value=f"{user['trivia_correct']}/{user['trivia_total']} ({accuracy:.1f}%)",
-                    inline=False,
+            trivia_leaders = db.get_trivia_leaderboard(10)
+            if trivia_leaders:
+                embed_trivia = discord.Embed(
+                    title="🧠 Ranking Trivia Semanal",
+                    description="Los mejores en trivia esta semana",
+                    color=discord.Color.purple(),
                 )
-            await channel.send(embed=embed_trivia)
+                for i, user in enumerate(trivia_leaders):
+                    medal = medals[i] if i < 3 else f"#{i+1}"
+                    accuracy = user["accuracy"]
+                    embed_trivia.add_field(
+                        name=f"{medal} {user['username']}",
+                        value=f"{user['trivia_correct']}/{user['trivia_total']} ({accuracy:.1f}%)",
+                        inline=False,
+                    )
+                await channel.send(embed=embed_trivia)
 
-        streak_leaders = db.get_streak_leaderboard(10)
-        if streak_leaders:
-            embed_streak = discord.Embed(
-                title="🔥 Ranking de Rachas",
-                description="Los miembros con las mejores rachas activas",
-                color=discord.Color.orange(),
-            )
-            for i, user in enumerate(streak_leaders):
-                medal = medals[i] if i < 3 else f"#{i+1}"
-                embed_streak.add_field(
-                    name=f"{medal} {user['username']}",
-                    value=f"{user['current_streak']} días 🔥 | Mejor: {user.get('best_streak', 0)} ⭐",
-                    inline=False,
+            streak_leaders = db.get_streak_leaderboard(10)
+            if streak_leaders:
+                embed_streak = discord.Embed(
+                    title="🔥 Ranking de Rachas",
+                    description="Los miembros con las mejores rachas activas",
+                    color=discord.Color.orange(),
                 )
-            await channel.send(embed=embed_streak)
+                for i, user in enumerate(streak_leaders):
+                    medal = medals[i] if i < 3 else f"#{i+1}"
+                    embed_streak.add_field(
+                        name=f"{medal} {user['username']}",
+                        value=f"{user['current_streak']} días 🔥 | Mejor: {user.get('best_streak', 0)} ⭐",
+                        inline=False,
+                    )
+                await channel.send(embed=embed_streak)
 
     except Exception as e:
         logging.exception(f"Error in daily_trivia_task: {e}")
