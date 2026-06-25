@@ -20,15 +20,11 @@ from config import (
     YOUTUBE_CHANNEL_ID,
     MIEMBRO_ROLE_ID,
     TWITCH_VIP_ROLE_ID,
-    DISCORD_CLIENT_ID,
-    DISCORD_CLIENT_SECRET,
-    DISCORD_REDIRECT_URI,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
 )
 import database as db
-from web_server import get_code, start_web_server
 
 _twitch_token = None
 _twitch_token_time = 0
@@ -130,209 +126,6 @@ def get_twitch_vips() -> set:
         if not cursor:
             break
     return vips
-
-
-class CodeModal(ui.Modal, title="Pega el código de autorización"):
-    code = ui.TextInput(
-        label="Código de Discord",
-        placeholder="Pega aquí el código de la URL después de autorizar",
-        required=True,
-        max_length=200,
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        log.info(f"CodeModal.on_submit iniciado por {interaction.user}")
-        try:
-            await interaction.response.defer(ephemeral=True)
-
-            code_value = self.code.value.strip()
-
-            if "code=" in code_value:
-                import re
-                match = re.search(r'code=([^&]+)', code_value)
-                if match:
-                    code_value = match.group(1)
-                    log.info(f"Extracted code from URL: {code_value[:10]}...")
-
-            if "/" in code_value and not code_value.startswith("http"):
-                parts = code_value.split("/")
-                code_value = parts[-1]
-                log.info(f"Extracted code from path: {code_value[:10]}...")
-
-            log.info(f"Código recibido: {code_value[:10]}...")
-
-            import aiohttp as _aiohttp
-            async with _aiohttp.ClientSession() as session:
-                data = {
-                    "client_id": DISCORD_CLIENT_ID,
-                    "client_secret": DISCORD_CLIENT_SECRET,
-                    "grant_type": "authorization_code",
-                    "code": code_value,
-                    "redirect_uri": DISCORD_REDIRECT_URI,
-                }
-                log.info(f"Client ID: {DISCORD_CLIENT_ID}")
-                log.info(f"Redirect URI: {DISCORD_REDIRECT_URI}")
-                async with session.post("https://discord.com/api/oauth2/token", data=data) as resp:
-                    resp_text = await resp.text()
-                    log.info(f"Discord token response: {resp.status} - {resp_text[:200]}")
-                    if resp.status != 200:
-                        await interaction.followup.send(
-                            embed=discord.Embed(
-                                title="❌ Código inválido",
-                                description=f"Error de Discord: {resp_text[:200]}",
-                                color=discord.Color.red(),
-                            ),
-                            ephemeral=True,
-                        )
-                        return
-                    token_data = await resp.json()
-                    access_token = token_data["access_token"]
-
-                headers = {"Authorization": f"Bearer {access_token}"}
-                async with session.get("https://discord.com/api/users/@me/connections", headers=headers) as resp:
-                    if resp.status != 200:
-                        await interaction.followup.send(
-                            embed=discord.Embed(
-                                title="❌ Error al leer conexiones",
-                                description="No se pudieron leer tus conexiones.",
-                                color=discord.Color.red(),
-                            ),
-                            ephemeral=True,
-                        )
-                        return
-                    connections = await resp.json()
-                    log.info(f"Conexiones de Discord: {connections}")
-
-            twitch_name = None
-            youtube_name = None
-            youtube_id = None
-            for conn in connections:
-                if conn["type"] == "twitch":
-                    twitch_name = conn["name"]
-                elif conn["type"] == "youtube":
-                    youtube_name = conn["name"]
-                    youtube_id = conn["id"]
-
-            log.info(f"Conexiones: twitch={twitch_name}, youtube={youtube_name}, youtube_id={youtube_id}")
-
-            if interaction.user.id == interaction.guild.owner_id:
-                db.create_user(interaction.user.id, interaction.user.display_name)
-                db.set_verified(interaction.user.id, True, "owner", "owner")
-                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-                if role:
-                    await interaction.user.add_roles(role)
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="✅ Verificado",
-                        description="Eres el owner, verificado automáticamente.",
-                        color=discord.Color.green(),
-                    ),
-                    ephemeral=True,
-                )
-                return
-
-            verified = False
-            platform_used = None
-            username_used = None
-
-            if twitch_name:
-                if twitch_name.lower() == TWITCH_BROADCASTER_LOGIN.lower():
-                    log.info("Twitch es el broadcaster, auto-verificado")
-                    verified = True
-                    platform_used = "twitch"
-                    username_used = twitch_name.lower()
-                else:
-                    log.info(f"Twitch vinculado: {twitch_name} (verificación de follow pendiente con botón de Twitch)")
-                    verified = True
-                    platform_used = "twitch"
-                    username_used = twitch_name.lower()
-
-            if not verified and youtube_name:
-                if youtube_id == YOUTUBE_CHANNEL_ID or youtube_name.lower() == "pokejgamer":
-                    log.info("YouTube es el canal, auto-verificado")
-                    verified = True
-                    platform_used = "youtube"
-                    username_used = youtube_name
-                else:
-                    log.info(f"YouTube vinculado: {youtube_name} (verificación de suscripción pendiente con botón de YouTube)")
-                    verified = True
-                    platform_used = "youtube"
-                    username_used = youtube_name
-
-            if verified:
-                db.create_user(interaction.user.id, interaction.user.display_name)
-                db.set_verified(interaction.user.id, True, platform_used, username_used)
-                role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
-                if role:
-                    await interaction.user.add_roles(role)
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="✅ Verificado",
-                        description=f"Tu **{platform_used.title()}** **{username_used}** está verificado.\n\nYa tienes el rol **Miembro**.",
-                        color=discord.Color.green(),
-                    ),
-                    ephemeral=True,
-                )
-            else:
-                desc = "No se encontró Twitch ni YouTube vinculado.\n\n"
-                desc += "Vincula tu cuenta de **Twitch** o **YouTube** en Discord (Ajustes de Usuario → Conexiones) y vuelve a intentar."
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="❌ No verificado",
-                        description=desc,
-                        color=discord.Color.red(),
-                    ),
-                    ephemeral=True,
-                )
-        except Exception as e:
-            log.exception(f"Error en CodeModal.on_submit: {e}")
-            try:
-                await interaction.followup.send(
-                    embed=discord.Embed(
-                        title="❌ Error interno",
-                        description=f"Error: {e}",
-                        color=discord.Color.red(),
-                    ),
-                    ephemeral=True,
-                )
-            except:
-                pass
-
-
-class VerifyView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @ui.button(label="Verificar con Discord", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_discord_v2")
-    async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
-        redirect = DISCORD_REDIRECT_URI
-        params = {
-            "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": redirect,
-            "response_type": "code",
-            "scope": "identify connections",
-        }
-        url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
-        embed = discord.Embed(
-            title="🔗 Verificar con Discord",
-            description=(
-                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
-                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
-                f"**Paso 3:** Haz clic en el botón **📋 Pegar código** de abajo y pégalo\n\n"
-                f"**[Clic aquí para autorizar]({url})**"
-            ),
-            color=discord.Color.blurple(),
-        )
-        await interaction.response.send_message(embed=embed, view=CodeView(), ephemeral=True)
-
-
-class CodeView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @ui.button(label="Pegar código", style=discord.ButtonStyle.green, emoji="📋", custom_id="paste_code_btn")
-    async def paste_code(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(CodeModal())
 
 
 class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
@@ -580,60 +373,11 @@ class TwitchCodeView(ui.View):
         await interaction.response.send_modal(TwitchCodeModal())
 
 
-class YouTubeVerifyView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_youtube_v1")
-    async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
-        params = {
-            "client_id": GOOGLE_CLIENT_ID,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "response_type": "code",
-            "scope": "https://www.googleapis.com/auth/youtube.readonly",
-            "access_type": "offline",
-        }
-        url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
-        embed = discord.Embed(
-            title="▶️ Verificar con YouTube",
-            description=(
-                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
-                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
-                f"**Paso 3:** Haz clic en el botón **📋 Pegar código YouTube** de abajo y pégalo\n\n"
-                f"**[Clic aquí para autorizar]({url})**"
-            ),
-            color=discord.Color.red(),
-        )
-        await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
-
-
 class VerifyMainView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Verificar con Discord", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="verify_main_discord")
-    async def discord_button(self, interaction: discord.Interaction, button: ui.Button):
-        redirect = DISCORD_REDIRECT_URI
-        params = {
-            "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": redirect,
-            "response_type": "code",
-            "scope": "identify connections",
-        }
-        url = f"https://discord.com/api/oauth2/authorize?{urlencode(params)}"
-        embed = discord.Embed(
-            title="🔗 Verificar con Discord",
-            description=(
-                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
-                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
-                f"**Paso 3:** Haz clic en el botón **📋 Pegar código** de abajo y pégalo\n\n"
-                f"**[Clic aquí para autorizar]({url})**"
-            ),
-            color=discord.Color.blurple(),
-        )
-        await interaction.response.send_message(embed=embed, view=CodeView(), ephemeral=True)
-
-    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube")
+    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube_v2")
     async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
         params = {
             "client_id": GOOGLE_CLIENT_ID,
@@ -655,7 +399,7 @@ class VerifyMainView(ui.View):
         )
         await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
 
-    @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch")
+    @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch_v2")
     async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
         params = {
             "client_id": TWITCH_CLIENT_ID,
@@ -895,11 +639,7 @@ def check_youtube_subscription(channel_name: str) -> bool:
 
 
 async def setup(bot: commands.Bot):
-    asyncio.create_task(start_web_server())
     await bot.add_cog(Verify(bot))
-    bot.add_view(VerifyView())
-    bot.add_view(CodeView())
     bot.add_view(VerifyMainView())
     bot.add_view(YouTubeCodeView())
-    bot.add_view(YouTubeVerifyView())
     bot.add_view(TwitchCodeView())
