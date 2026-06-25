@@ -408,8 +408,19 @@ class VerifyMainView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube_v2")
+    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube_v3")
     async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
+        role = interaction.guild.get_role(MIEMBRO_ROLE_ID) if interaction.guild else None
+        if role and role in interaction.user.roles:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="✅ Ya estás verificado",
+                    description="Ya tienes el rol **Miembro**. No necesitas verificar de nuevo.",
+                    color=discord.Color.green(),
+                ),
+                ephemeral=True,
+            )
+            return
         params = {
             "client_id": GOOGLE_CLIENT_ID,
             "redirect_uri": GOOGLE_REDIRECT_URI,
@@ -430,8 +441,19 @@ class VerifyMainView(ui.View):
         )
         await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
 
-    @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch_v2")
+    @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch_v3")
     async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
+        role = interaction.guild.get_role(MIEMBRO_ROLE_ID) if interaction.guild else None
+        if role and role in interaction.user.roles:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="✅ Ya estás verificado",
+                    description="Ya tienes el rol **Miembro**. No necesitas verificar de nuevo.",
+                    color=discord.Color.green(),
+                ),
+                ephemeral=True,
+            )
+            return
         params = {
             "client_id": TWITCH_CLIENT_ID,
             "redirect_uri": TWITCH_REDIRECT_URI,
