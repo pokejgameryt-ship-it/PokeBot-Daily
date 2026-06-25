@@ -136,12 +136,8 @@ def generate_question(difficulty: str) -> dict | None:
 
 def get_trivia_question(difficulty: str, local_pool: list) -> dict:
     used = db.get_used_questions()
-    recent_cutoff = db.get_recent_question_cutoff()
 
-    available_local = [
-        q for q in local_pool
-        if q["question"] not in used or used[q["question"]] < recent_cutoff
-    ]
+    available_local = [q for q in local_pool if q["question"] not in used]
 
     if available_local:
         question = random.choice(available_local)
@@ -258,12 +254,8 @@ def verify_weekly_question(data: dict) -> dict | None:
 
 def get_weekly_questions(local_pool: list, count: int = 10) -> list:
     used = db.get_used_questions()
-    recent_cutoff = db.get_recent_question_cutoff()
 
-    available_local = [
-        q for q in local_pool
-        if q["question"] not in used or used[q["question"]] < recent_cutoff
-    ]
+    available_local = [q for q in local_pool if q["question"] not in used]
 
     if len(available_local) >= count:
         selected = random.sample(available_local, count)
