@@ -363,14 +363,18 @@ def get_total_score(user_id: int) -> int:
     return data.get("total_score", 0) if data else 0
 
 
-def get_used_questions() -> dict:
+def get_used_questions() -> set:
     ref = db.reference("used_questions")
-    return ref.get() or {}
+    data = ref.get() or {}
+    return {v.get("question", "") for v in data.values() if isinstance(v, dict)}
 
 
 def mark_question_used(question: str):
+    import hashlib
     ref = db.reference("used_questions")
-    ref.child(question.replace(".", "_").replace("#", "_").replace("$", "_").replace("[", "_").replace("]", "_")).set({
+    key = hashlib.md5(question.encode("utf-8")).hexdigest()
+    ref.child(key).set({
+        "question": question,
         "used_at": datetime.now().isoformat(),
     })
 

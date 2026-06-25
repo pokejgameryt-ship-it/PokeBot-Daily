@@ -306,9 +306,40 @@ class TwitchCodeModal(ui.Modal, title="Pega el código de Twitch"):
                     "Client-Id": TWITCH_CLIENT_ID,
                 }
                 async with session.get(
+                    "https://api.twitch.tv/helix/users",
+                    headers=headers,
+                ) as resp:
+                    resp_text = await resp.text()
+                    log.info(f"Twitch users response: {resp.status} - {resp_text[:300]}")
+                    if resp.status != 200:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ Error al obtener usuario",
+                                description=f"Error de Twitch: {resp_text[:200]}",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    user_data = await resp.json()
+                    twitch_users = user_data.get("data", [])
+                    if not twitch_users:
+                        await interaction.followup.send(
+                            embed=discord.Embed(
+                                title="❌ No se encontró tu usuario de Twitch",
+                                description="No se pudo obtener tu información de Twitch.",
+                                color=discord.Color.red(),
+                            ),
+                            ephemeral=True,
+                        )
+                        return
+                    user_id = twitch_users[0]["id"]
+                    log.info(f"Twitch user ID: {user_id}")
+
+                async with session.get(
                     "https://api.twitch.tv/helix/channels/followed",
                     headers=headers,
-                    params={"broadcaster_id": TWITCH_BROADCASTER_ID},
+                    params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
                 ) as resp:
                     resp_text = await resp.text()
                     log.info(f"Twitch followed response: {resp.status} - {resp_text[:300]}")
