@@ -205,13 +205,15 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
 
             twitch_name = None
             youtube_name = None
+            youtube_id = None
             for conn in connections:
                 if conn["type"] == "twitch":
                     twitch_name = conn["name"]
                 elif conn["type"] == "youtube":
                     youtube_name = conn["name"]
+                    youtube_id = conn["id"]
 
-            log.info(f"Conexiones: twitch={twitch_name}, youtube={youtube_name}")
+            log.info(f"Conexiones: twitch={twitch_name}, youtube={youtube_name}, youtube_id={youtube_id}")
 
             if interaction.user.id == interaction.guild.owner_id:
                 db.create_user(interaction.user.id, interaction.user.display_name)
@@ -240,28 +242,22 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
                     platform_used = "twitch"
                     username_used = twitch_name.lower()
                 else:
-                    log.info(f"Comprobando follow de Twitch: {twitch_name.lower()}")
-                    if check_twitch_follow(twitch_name.lower()):
-                        verified = True
-                        platform_used = "twitch"
-                        username_used = twitch_name.lower()
-                    else:
-                        log.warning(f"Twitch follow falló para {twitch_name}")
+                    log.info(f"Twitch vinculado: {twitch_name} (verificación de follow pendiente con botón de Twitch)")
+                    verified = True
+                    platform_used = "twitch"
+                    username_used = twitch_name.lower()
 
             if not verified and youtube_name:
-                if youtube_name.lower() == YOUTUBE_CHANNEL_ID.lower() or youtube_name.lstrip("@").lower() == "pokejgamer":
+                if youtube_id == YOUTUBE_CHANNEL_ID or youtube_name.lower() == "pokejgamer":
                     log.info("YouTube es el canal, auto-verificado")
                     verified = True
                     platform_used = "youtube"
                     username_used = youtube_name
                 else:
-                    log.info(f"Comprobando suscripción de YouTube: {youtube_name}")
-                    if check_youtube_subscription(youtube_name):
-                        verified = True
-                        platform_used = "youtube"
-                        username_used = youtube_name
-                    else:
-                        log.warning(f"YouTube subscription falló para {youtube_name}")
+                    log.info(f"YouTube vinculado: {youtube_name} (verificación de suscripción pendiente con botón de YouTube)")
+                    verified = True
+                    platform_used = "youtube"
+                    username_used = youtube_name
 
             if verified:
                 db.create_user(interaction.user.id, interaction.user.display_name)
@@ -278,26 +274,8 @@ class CodeModal(ui.Modal, title="Pega el código de autorización"):
                     ephemeral=True,
                 )
             else:
-                desc = ""
-                if twitch_name and youtube_name:
-                    desc = (
-                        f"Tu Twitch **{twitch_name}** no sigue el canal.\n"
-                        f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
-                        f"Sigue: **https://twitch.tv/pokejgamer**\n"
-                        f"Suscríbete: **https://youtube.com/@pokejgamer**"
-                    )
-                elif twitch_name:
-                    desc = (
-                        f"Tu Twitch **{twitch_name}** no sigue el canal.\n\n"
-                        f"Sigue: **https://twitch.tv/pokejgamer**"
-                    )
-                elif youtube_name:
-                    desc = (
-                        f"Tu YouTube **{youtube_name}** no está suscrito.\n\n"
-                        f"Suscríbete: **https://youtube.com/@pokejgamer**"
-                    )
-                else:
-                    desc = "No tienes Twitch o YouTube vinculado en Discord.\n\nVe a **Configuración de Discord → Conexiones** para vincularlos."
+                desc = "No se encontró Twitch ni YouTube vinculado.\n\n"
+                desc += "Vincula tu cuenta de **Twitch** o **YouTube** en Discord (Ajustes de Usuario → Conexiones) y vuelve a intentar."
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="❌ No verificado",
