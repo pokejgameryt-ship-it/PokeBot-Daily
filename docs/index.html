@@ -3,9 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PokeBot Daily</title>
+    <title>PokeBot Daily - Verificación OAuth</title>
+    <meta name="description" content="PokeBot Daily - Bot de Discord para verificación de suscriptores de YouTube y Twitch">
 </head>
 <body>
-    <p>Bot de verificación. <a href="callback.html">Ir a callback</a></p>
+    <h1>PokeBot Daily</h1>
+    <p>Esta aplicación OAuth verifica si los usuarios de Discord están suscritos al canal de YouTube o siguen el canal de Twitch de <strong>pokejgamer</strong> para otorgarles roles de verificación en el servidor de Discord.</p>
+    
+    <h2>¿Qué hace esta app?</h2>
+    <ul>
+        <li>Verifica suscripciones a YouTube usando OAuth2</li>
+        <li>Verifica seguidores de Twitch usando OAuth2</li>
+        <li>Asigna roles de "Verificado" en Discord a los usuarios que cumplan los requisitos</li>
+    </ul>
+    
+    <h2>Permisos solicitados</h2>
+    <ul>
+        <li><strong>YouTube</strong>: Acceso de solo lectura a suscripciones (<code>youtube.readonly</code>)</li>
+        <li><strong>Twitch</strong>: Acceso de solo lectura a follows (<code>user:read:follows</code>)</li>
+    </ul>
+    
+    <p><a href="callback.html">Ir a callback</a></p>
+    
+    <p><small>Desarrollado para el servidor de Discord de pokejgamer</small></p>
 </body>
 </html>
