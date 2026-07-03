@@ -146,15 +146,53 @@ def get_users_needing_reminder():
     for uid, data in users.items():
         streak = data.get("current_streak", 0)
         last_date_str = data.get("last_trivia_date")
+        reminder_sent = data.get("reminder_sent_date")
         if streak > 0 and last_date_str:
             last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
-            if last_date < today:
+            days_since = (today - last_date).days
+            if days_since >= 1:
+                if reminder_sent == today.isoformat():
+                    continue
                 result.append({
                     "user_id": int(uid),
                     "username": data.get("username", "Unknown"),
                     "current_streak": streak,
+                    "days_since": days_since,
             })
     return result
+
+
+def get_users_with_broken_streaks():
+    today = datetime.now().date()
+    two_days_ago = (today - timedelta(days=2)).isoformat()
+    users = _users_ref().get() or {}
+    result = []
+    for uid, data in users.items():
+        streak = data.get("current_streak", 0)
+        last_date_str = data.get("last_trivia_date")
+        notified = data.get("streak_broken_notified")
+        if streak > 0 and last_date_str and last_date_str < two_days_ago:
+            if notified:
+                continue
+            result.append({
+                "user_id": int(uid),
+                "username": data.get("username", "Unknown"),
+                "old_streak": streak,
+            })
+    return result
+
+
+def mark_reminder_sent(user_id: int):
+    ref = _users_ref().child(str(user_id))
+    ref.update({"reminder_sent_date": datetime.now().date().isoformat()})
+
+
+def mark_streak_broken_notified(user_id: int):
+    ref = _users_ref().child(str(user_id))
+    ref.update({
+        "current_streak": 0,
+        "streak_broken_notified": True,
+    })
 
 
 def _weekly_quiz_ref():
@@ -267,11 +305,16 @@ def get_leaderboard(limit: int = 10) -> list:
     return lista[:limit]
 
 
-def get_trivia_leaderboard(limit: int = 10) -> list:
+def get_trivia_leaderboard(limit: int = 10, week_only: bool = False) -> list:
     users = _users_ref().get() or {}
     lista = []
+    cutoff = (datetime.now() - timedelta(days=7)).date().isoformat()
     for uid, data in users.items():
         if data.get("trivia_total", 0) > 0:
+            if week_only:
+                last_trivia = data.get("last_trivia_date")
+                if not last_trivia or last_trivia < cutoff:
+                    continue
             accuracy = (data["trivia_correct"] / data["trivia_total"]) * 100
             entry = dict(data)
             entry["user_id"] = int(uid)
