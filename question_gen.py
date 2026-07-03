@@ -44,19 +44,24 @@ def verify_question(question_data: dict) -> dict | None:
             f"Pregunta: {question_data['question']}\n"
             f"Respuesta marcada como correcta: {question_data['correct']}\n"
             f"Opciones: {question_data['options']}\n\n"
-            "Verifica si la respuesta marcada como correcta es realmente correcta. "
-            "Si es correcta, responde: {\"valid\": true}\n"
-            "Si es incorrecta, responde: {\"valid\": false, \"correct\": \"respuesta correcta\"}\n"
-            "Responde SOLO con JSON válido."
+            "IMPORTANTE: Verifica ESTRICTAMENTE lo siguiente:\n"
+            "1. ¿La respuesta marcada como correcta es REALMENTE correcta?\n"
+            "2. ¿La respuesta correcta está entre las opciones?\n"
+            "3. ¿Las opciones son plausible y solo una es correcta?\n\n"
+            "Responde SOLO con JSON válido:\n"
+            "- Si todo está correcto: {\"valid\": true}\n"
+            "- Si la respuesta es incorrecta: {\"valid\": false, \"correct\": \"respuesta correcta\"}\n"
+            "- Si la respuesta no está en opciones: {\"valid\": false, \"correct\": \"respuesta\", \"options\": [\"op1\", \"op2\", \"op3\"]}\n"
+            "Responde SOLO con JSON, sin texto adicional."
         )
         payload = {
             "model": VERIFIER_MODEL,
             "messages": [
-                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
+                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto. Solo responde con JSON."},
                 {"role": "user", "content": verify_prompt},
             ],
             "temperature": 0.1,
-            "max_tokens": 200,
+            "max_tokens": 300,
         }
         resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
         if resp.status_code != 200:
@@ -70,11 +75,17 @@ def verify_question(question_data: dict) -> dict | None:
 
         result = json.loads(content)
         if result.get("valid"):
+            log.info(f"Question verified as valid: {question_data['question'][:50]}...")
             return question_data
         elif "correct" in result:
             log.warning(f"Answer corrected: '{question_data['correct']}' -> '{result['correct']}'")
-            if result["correct"] in question_data["options"]:
-                question_data["correct"] = result["correct"]
+            question_data["correct"] = result["correct"]
+            if "options" in result:
+                question_data["options"] = result["options"]
+                log.info(f"Options also corrected: {result['options']}")
+            elif result["correct"] not in question_data["options"]:
+                log.warning(f"Corrected answer not in options, replacing first option")
+                question_data["options"][0] = result["correct"]
             return question_data
         return question_data
 
@@ -92,8 +103,8 @@ def generate_question(difficulty: str) -> dict | None:
         payload = {
             "model": GENERATOR_MODEL,
             "messages": [
-                {"role": "system", "content": "Eres un experto en Pokémon. Responde solo con JSON válido, sin texto adicional."},
-                {"role": "user", "content": DIFFICULTY_PROMPTS[difficulty]},
+                {"role": "system", "content": "Eres un experto en Pokémon. Responde solo con JSON válido, sin texto adicional. ASEGÚRATE de que la respuesta correcta esté en las opciones."},
+                {"role": "user", "content": DIFFICULTY_PROMPTS[difficulty] + "\n\nIMPORTANTE: La respuesta correcta DEBE estar en la lista de opciones. Verifica antes de responder."},
             ],
             "temperature": 0.9,
             "max_tokens": 300,
@@ -120,8 +131,8 @@ def generate_question(difficulty: str) -> dict | None:
             log.error(f"Invalid options count: {question_data}")
             return None
         if question_data["correct"] not in question_data["options"]:
-            log.error(f"Correct answer not in options: {question_data}")
-            return None
+            log.warning(f"Correct answer not in options, adding it: {question_data['correct']}")
+            question_data["options"][0] = question_data["correct"]
 
         log.info(f"Generated {difficulty} question: {question_data['question'][:50]}...")
         verified = verify_question(question_data)
@@ -141,19 +152,19 @@ def get_trivia_question(difficulty: str, local_pool: list) -> dict:
 
     if available_local:
         question = random.choice(available_local)
+        if question["correct"] not in question["options"]:
+            log.warning(f"Local question has correct answer not in options, fixing: {question['question'][:50]}...")
+            question["options"][0] = question["correct"]
         db.mark_question_used(question["question"])
         return question
 
-    log.info(f"No local questions available for {difficulty}, generating via API...")
-    for attempt in range(3):
-        question = generate_question(difficulty)
-        if question and question["question"] not in used:
-            db.mark_question_used(question["question"])
-            return question
-        log.warning(f"Generated question was duplicate or invalid, attempt {attempt + 1}")
-
-    log.warning("All generation attempts failed, using random from local pool")
-    question = random.choice(local_pool)
+    # If all questions used, reset and pick from full pool
+    log.info(f"All local questions for {difficulty} used, resetting pool...")
+    available_local = local_pool[:]
+    question = random.choice(available_local)
+    if question["correct"] not in question["options"]:
+        log.warning(f"Fallback question has correct answer not in options, fixing: {question['question'][:50]}...")
+        question["options"][0] = question["correct"]
     db.mark_question_used(question["question"])
     return question
 
@@ -214,15 +225,16 @@ def verify_weekly_question(data: dict) -> dict | None:
         verify_prompt = (
             f"Afirmación: {data['question']}\n"
             f"Marcada como: {answer_text}\n\n"
-            "Verifica si la afirmación es realmente verdadera o falsa. "
-            "Si es correcta, responde: {\"valid\": true}\n"
-            "Si es incorrecta, responde: {\"valid\": false, \"answer\": true/false}\n"
-            "Responde SOLO con JSON válido."
+            "IMPORTANTE: Verifica ESTRICTAMENTE si la afirmación es verdadera o falsa.\n"
+            "Responde SOLO con JSON válido:\n"
+            "- Si es correcta: {\"valid\": true}\n"
+            "- Si es incorrecta: {\"valid\": false, \"answer\": true/false}\n"
+            "Responde SOLO con JSON, sin texto adicional."
         )
         payload = {
             "model": VERIFIER_MODEL,
             "messages": [
-                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto."},
+                {"role": "system", "content": "Eres un verificador de datos Pokémon. Sé preciso y estricto. Solo responde con JSON."},
                 {"role": "user", "content": verify_prompt},
             ],
             "temperature": 0.1,
@@ -240,6 +252,7 @@ def verify_weekly_question(data: dict) -> dict | None:
 
         result = json.loads(content)
         if result.get("valid"):
+            log.info(f"Weekly question verified as valid: {data['question'][:50]}...")
             return data
         elif "answer" in result:
             log.warning(f"Weekly answer corrected: {data['answer']} -> {result['answer']}")
@@ -263,21 +276,24 @@ def get_weekly_questions(local_pool: list, count: int = 10) -> list:
             db.mark_question_used(q["question"])
         return selected
 
-    log.info(f"Not enough local weekly questions ({len(available_local)}/{count}), generating via API...")
+    # If not enough unused questions, use all available and add from full pool
+    log.info(f"Not enough unused weekly questions ({len(available_local)}/{count}), using full pool...")
     selected = available_local[:]
     for q in selected:
         db.mark_question_used(q["question"])
 
+    # Add from full pool (excluding already selected)
+    remaining = [q for q in local_pool if q not in selected]
+    while len(selected) < count and remaining:
+        q = remaining.pop(0)
+        selected.append(q)
+        db.mark_question_used(q["question"])
+
+    # If still not enough, allow duplicates from full pool
     while len(selected) < count:
-        question = generate_weekly_question()
-        if question and question["question"] not in used:
-            db.mark_question_used(question["question"])
-            selected.append(question)
-        elif len(selected) < count:
-            fallback = random.choice(local_pool)
-            if fallback not in selected:
-                db.mark_question_used(fallback["question"])
-                selected.append(fallback)
+        q = random.choice(local_pool)
+        selected.append(q)
+        db.mark_question_used(q["question"])
 
     random.shuffle(selected)
     return selected[:count]

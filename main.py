@@ -31,6 +31,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 ALLOWED_CHANNEL_ID = 1516733719191228416
 COMMANDS_ALLOWED_CHANNELS = ["enviar-verificacion", "verificar-todos"]
 
+_active_views = []
+
 
 @bot.check
 async def check_channel(ctx):
@@ -148,21 +150,23 @@ async def daily_trivia_task():
         if not channel:
             return
 
-        from trivia import TriviaView, TRIVIA_EASY, TRIVIA_MEDIUM, TRIVIA_HARD, DIFFICULTY_CONFIG
-        from question_gen import get_trivia_question
+        from trivia import TriviaView, DIFFICULTY_CONFIG
+        from pokeapi_trivia import generate_daily_trivia
         import random
 
         difficulty = random.choice(["easy", "medium", "hard"])
-        pool = {"easy": TRIVIA_EASY, "medium": TRIVIA_MEDIUM, "hard": TRIVIA_HARD}
-        trivia = get_trivia_question(difficulty, pool[difficulty])
+        
+        # Generate question from PokeAPI (100% verified data)
+        trivia = generate_daily_trivia()
         if not trivia:
-            logging.error("get_trivia_question returned None")
+            logging.error("generate_daily_trivia returned None")
             return
 
         options = trivia["options"][:]
         random.shuffle(options)
 
-        db.save_trivia_question(trivia["question"], trivia["correct"], options)
+        correct = trivia["correct"]
+        db.save_trivia_question(trivia["question"], correct, options)
 
         daily = db.get_daily_trivia()
         if not daily:
@@ -185,10 +189,12 @@ async def daily_trivia_task():
         embed.add_field(name="A", value=options[0], inline=False)
         embed.add_field(name="B", value=options[1], inline=False)
         embed.add_field(name="C", value=options[2], inline=False)
-        embed.set_footer(text="Usa los botones para responder. Tienes 60 segundos.")
+        embed.set_footer(text="Usa los botones para responder. Disponible hasta mañana a las 10:00.")
 
-        view = TriviaView(trivia["correct"], daily["id"], options, difficulty)
-        await channel.send(embed=embed, view=view)
+        view = TriviaView(correct, daily["id"], options, difficulty)
+        msg = await channel.send(embed=embed, view=view)
+        view.message = msg
+        _active_views.append(view)
 
         if now.weekday() == 0:
             await asyncio.sleep(2)
@@ -210,7 +216,7 @@ async def daily_trivia_task():
                     )
                 await channel.send(embed=embed_global)
 
-            trivia_leaders = db.get_trivia_leaderboard(10)
+            trivia_leaders = db.get_trivia_leaderboard(10, week_only=True)
             if trivia_leaders:
                 embed_trivia = discord.Embed(
                     title="🧠 Ranking Trivia Semanal",
@@ -258,15 +264,17 @@ async def streak_reminder_task():
     for user_data in users:
         try:
             user = await bot.fetch_user(user_data["user_id"])
-            if user:
-                await user.send(
-                    f"¡Hola {user_data['username']}! 🔥\n\n"
-                    f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
-                    f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
-                    f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
-                )
+            if not user:
+                continue
+            db.mark_reminder_sent(user_data["user_id"])
+            await user.send(
+                f"¡Hola {user_data['username']}! 🔥\n\n"
+                f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
+                f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
+                f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
+            )
         except Exception as e:
-            print(f"⚠️ No se pudo enviar DM a {user_data['username']}: {e}")
+            logging.warning(f"Error sending reminder to {user_data.get('username')}: {e}")
 
 
 @streak_reminder_task.before_loop
@@ -276,19 +284,28 @@ async def before_streak_reminder():
 
 @tasks.loop(hours=1)
 async def reset_stale_streaks_task():
-    reset_users = db.reset_stale_streaks()
-    if reset_users:
-        guild = bot.guilds[0] if bot.guilds else None
-        if guild:
-            role = guild.get_role(STREAK_ROLE_ID)
+    broken_users = db.get_users_with_broken_streaks()
+    guild = bot.guilds[0] if bot.guilds else None
+    if not guild:
+        return
+    role = guild.get_role(STREAK_ROLE_ID)
+    for user_data in broken_users:
+        try:
+            db.mark_streak_broken_notified(user_data["user_id"])
             if role:
-                for user_id in reset_users:
-                    try:
-                        member = guild.get_member(user_id)
-                        if member and role in member.roles:
-                            await member.remove_roles(role)
-                    except Exception as e:
-                        logging.warning(f"Could not remove streak role from {user_id}: {e}")
+                member = guild.get_member(user_data["user_id"])
+                if member and role in member.roles:
+                    await member.remove_roles(role)
+            user = await bot.fetch_user(user_data["user_id"])
+            if user:
+                await user.send(
+                    f"😢 ¡Hola {user_data['username']}!\n\n"
+                    f"Tu racha de **{user_data['old_streak']} días** se ha roto. "
+                    f"No respondiste la trivia en los últimos 2 días.\n\n"
+                    f"¡No te preocupes! Empieza de nuevo hoy. Ve a <#{ALLOWED_CHANNEL_ID}> y escribe **!trivia** para recuperarla. 💪"
+                )
+        except Exception as e:
+            logging.warning(f"Error notifying broken streak for {user_data['username']}: {e}")
 
 
 @reset_stale_streaks_task.before_loop

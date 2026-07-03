@@ -165,10 +165,23 @@ class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
                     resp_text = await resp.text()
                     log.info(f"Google token response: {resp.status} - {resp_text[:200]}")
                     if resp.status != 200:
+                        error_msg = "Código inválido o expirado."
+                        if "500" in resp_text or resp.status == 500:
+                            error_msg = (
+                                "Error del servidor de Google (500).\n\n"
+                                "Esto suele ocurrir cuando la aplicación de Google aún está en modo **Pruebas**.\n"
+                                "El creador del servidor debe publicar la app en Google Console para que todos puedan verificarla.\n\n"
+                                "Mientras tanto, usa **🟣 Verificar con Twitch** como alternativa."
+                            )
+                        elif "redirect_uri_mismatch" in resp_text:
+                            error_msg = "Error: La URI de redirección no coincide con la configurada en Google Console."
+                        elif "invalid_grant" in resp_text:
+                            error_msg = "Código inválido o expirado. Solicita uno nuevo."
+                        
                         await interaction.followup.send(
                             embed=discord.Embed(
-                                title="❌ Código inválido",
-                                description=f"Error de Google: {resp_text[:200]}",
+                                title="❌ Error de Google",
+                                description=error_msg,
                                 color=discord.Color.red(),
                             ),
                             ephemeral=True,
@@ -192,10 +205,24 @@ class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
                     resp_text = await resp.text()
                     log.info(f"YouTube subscriptions response: {resp.status} - {resp_text[:300]}")
                     if resp.status != 200:
+                        error_msg = f"Error de YouTube API: {resp_text[:200]}"
+                        if resp.status == 500:
+                            error_msg = (
+                                "Error del servidor de YouTube (500).\n\n"
+                                "La aplicación de Google necesita ser verificada para acceder a datos privados.\n"
+                                "Usa **🟣 Verificar con Twitch** como alternativa mientras tanto."
+                            )
+                        elif resp.status == 403:
+                            error_msg = (
+                                "Acceso denegado (403).\n\n"
+                                "La aplicación de Google no tiene permiso para ver suscripciones.\n"
+                                "El creador debe habilitar la API de YouTube y verificar la app en Google Console."
+                            )
+                        
                         await interaction.followup.send(
                             embed=discord.Embed(
                                 title="❌ Error al verificar",
-                                description=f"Error de YouTube: {resp_text[:200]}",
+                                description=error_msg,
                                 color=discord.Color.red(),
                             ),
                             ephemeral=True,
@@ -214,7 +241,7 @@ class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="✅ Verificado por YouTube",
-                        description="Estás suscrito a mi canal.\n\nYa tienes el rol **Miembro**.",
+                        description="Estás suscrito a mi canal.\n\nYa tienes el rol **Verificado**.",
                         color=discord.Color.green(),
                     ),
                     ephemeral=True,
@@ -366,7 +393,7 @@ class TwitchCodeModal(ui.Modal, title="Pega el código de Twitch"):
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="✅ Verificado por Twitch",
-                        description="Sigues el canal en Twitch.\n\nYa tienes el rol **Miembro**.",
+                        description="Sigues el canal en Twitch.\n\nYa tienes el rol **Verificado**.",
                         color=discord.Color.green(),
                     ),
                     ephemeral=True,
@@ -415,7 +442,7 @@ class VerifyMainView(ui.View):
             await interaction.response.send_message(
                 embed=discord.Embed(
                     title="✅ Ya estás verificado",
-                    description="Ya tienes el rol **Miembro**. No necesitas verificar de nuevo.",
+                    description="Ya tienes el rol **Verificado**. No necesitas verificar de nuevo.",
                     color=discord.Color.green(),
                 ),
                 ephemeral=True,
@@ -435,7 +462,9 @@ class VerifyMainView(ui.View):
                 f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
                 f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
                 f"**Paso 3:** Haz clic en el botón **📋 Pegar código YouTube** de abajo y pégalo\n\n"
-                f"**[Clic aquí para autorizar]({url})**"
+                f"**[Clic aquí para autorizar]({url})**\n\n"
+                f"⚠️ **Nota:** Si aparece un error 500, la aplicación de Google aún no está disponible para todos. "
+                f"Usa **🟣 Verificar con Twitch** como alternativa."
             ),
             color=discord.Color.red(),
         )
@@ -448,7 +477,7 @@ class VerifyMainView(ui.View):
             await interaction.response.send_message(
                 embed=discord.Embed(
                     title="✅ Ya estás verificado",
-                    description="Ya tienes el rol **Miembro**. No necesitas verificar de nuevo.",
+                    description="Ya tienes el rol **Verificado**. No necesitas verificar de nuevo.",
                     color=discord.Color.green(),
                 ),
                 ephemeral=True,
@@ -569,12 +598,12 @@ class Verify(commands.Cog):
                 "3. Copia el código de la URL\n"
                 "4. Pega el código en el botón que aparece\n\n"
                 "**Opciones:**\n"
-                "🔵 **Discord** → Verifica si tu Twitch/YouTube vinculado sigue el canal\n"
                 "▶️ **YouTube** → Verifica directamente con tu cuenta de Google\n"
                 "🟣 **Twitch** → Verifica directamente con tu cuenta de Twitch\n\n"
                 "**Requisitos:**\n"
                 "• Debes seguir el canal en **Twitch** o estar suscrito en **YouTube**\n"
-                "• Tu suscripción/seguimiento debe ser **pública**"
+                "• Tu suscripción/seguimiento debe ser **pública**\n\n"
+                "⚠️ **Nota:** Si YouTube no funciona, usa Twitch como alternativa."
             ),
             color=discord.Color.blue(),
         )
