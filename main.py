@@ -55,6 +55,7 @@ async def on_ready():
     await bot.load_extension("trivia")
     await bot.load_extension("reto")
     await bot.load_extension("verify")
+    await bot.load_extension("youtube_verify")
     
     print(f"✅ {bot.user} está online y listo para funcionar.")
     print(f"📊 Base de datos inicializada.")

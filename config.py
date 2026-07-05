@@ -42,15 +42,15 @@ TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET", "")
 TWITCH_BROADCASTER_ID = os.getenv("TWITCH_BROADCASTER_ID", "1134721153")
 TWITCH_BROADCASTER_LOGIN = os.getenv("TWITCH_BROADCASTER_LOGIN", "pokejgamer")
-TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
+TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI", "https://pokebot-1c544.web.app/callback.html")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "UCY-yUwAx1C0ApRHWKdo8o0Q")
 
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1519386835514560734")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "r16QgnGBt_ujCZ6ZYvU_BQr43x6y5e3k")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://pokebot-1c544.web.app/callback.html")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://pokejgameryt-ship-it.github.io/PokeBot-Daily/callback.html")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://pokebot-1c544.web.app/callback.html")
