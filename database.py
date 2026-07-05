@@ -446,3 +446,16 @@ def get_all_verified_users() -> list:
                 "username": data.get("verified_username"),
             })
     return result
+
+
+def is_youtube_verified(user_id: str) -> bool:
+    ref = _users_ref().child(user_id)
+    data = ref.get()
+    if data:
+        return data.get("youtube_verified", False)
+    return False
+
+
+def mark_youtube_verified(user_id: str):
+    ref = _users_ref().child(user_id)
+    ref.update({"youtube_verified": True})

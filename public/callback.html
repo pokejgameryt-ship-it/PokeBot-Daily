@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación Discord</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #2C2F33;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: #36393f;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .icon { font-size: 60px; margin-bottom: 20px; }
+        h1 { color: #5865F2; margin-bottom: 15px; font-size: 24px; }
+        .code-box {
+            background: #202225;
+            border: 2px solid #5865F2;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            color: #00ff00;
+            user-select: all;
+        }
+        .instructions {
+            background: #202225;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+            font-size: 14px;
+            color: #b9bbbe;
+        }
+        .instructions p { margin: 8px 0; }
+        .step { color: #5865F2; font-weight: bold; }
+        .copy-btn {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        .copy-btn:hover { background: #4752c4; }
+        .copy-btn:active { transform: scale(0.98); }
+        .success { color: #00ff00; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">✅</div>
+        <h1>¡Autorización correcta!</h1>
+        <p>Copia el código de abajo y vuelve a Discord a pegarlo:</p>
+        
+        <div class="code-box" id="code">Cargando...</div>
+        
+        <button class="copy-btn" onclick="copyCode()">📋 Copiar código</button>
+        <p class="success" id="success">✅ ¡Código copiado! Vuelve a Discord.</p>
+        
+        <div class="instructions">
+            <p><span class="step">Siguiente paso:</span></p>
+            <p>1. Haz clic en "Copiar código"</p>
+            <p>2. Vuelve a Discord</p>
+            <p>3. Haz clic en "📋 Pegar código"</p>
+            <p>4. Pega el código</p>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        
+        if (code) {
+            document.getElementById('code').textContent = code;
+        } else {
+            document.getElementById('code').textContent = 'No se recibió código';
+            document.getElementById('code').style.color = '#ff0000';
+        }
+
+        function copyCode() {
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    document.getElementById('success').style.display = 'block';
+                    document.querySelector('.copy-btn').textContent = '✅ ¡Copiado!';
+                    setTimeout(() => {
+                        document.querySelector('.copy-btn').textContent = '📋 Copiar código';
+                    }, 2000);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
