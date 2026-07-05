@@ -7,6 +7,7 @@ import time
 import asyncio
 import os
 import logging
+import io
 from urllib.parse import urlencode
 
 log = logging.getLogger("verify")
@@ -25,6 +26,28 @@ from config import (
     GOOGLE_REDIRECT_URI,
 )
 import database as db
+
+try:
+    import pytesseract
+    from PIL import Image
+    HAS_OCR = True
+except ImportError:
+    HAS_OCR = False
+    log.warning("pytesseract no instalado - verificación por screenshot deshabilitada")
+
+YOUTUBE_CHANNEL_NAMES = [
+    "pokejgamer",
+    "poke jgamer",
+    "pokej gameryt",
+    "pokejgamer yt",
+]
+
+SUBSCRIBED_KEYWORDS = [
+    "suscrito",
+    "subscribed",
+    "suscrib",
+    "subscrib",
+]
 
 _twitch_token = None
 _twitch_token_time = 0
@@ -431,6 +454,124 @@ class TwitchCodeView(ui.View):
         await interaction.response.send_modal(TwitchCodeModal())
 
 
+class YouTubeScreenshotModal(ui.Modal, title="Verificación de YouTube"):
+    async def on_submit(self, interaction: discord.Interaction):
+        pass
+
+
+class YouTubeScreenshotView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=120)
+
+    @ui.button(label="📸 Enviar screenshot", style=discord.ButtonStyle.red, emoji="📸", custom_id="yt_screenshot_btn")
+    async def screenshot_button(self, interaction: discord.Interaction, button: ui.Button):
+        embed = discord.Embed(
+            title="📸 Envía tu screenshot",
+            description=(
+                "Envía una captura de pantalla de que estás **suscrito** a mi canal de YouTube.\n\n"
+                "**Cómo hacerlo:**\n"
+                "1. Ve a mi canal de YouTube\n"
+                "2. Haz clic en el botón de suscripción\n"
+                "3. Haz una captura de pantalla que muestre que pone \"Suscrito\"\n"
+                "4. Envía la imagen aquí\n\n"
+                "⏰ Tienes 60 segundos para enviar la imagen."
+            ),
+            color=discord.Color.blue()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        def check(msg):
+            return msg.author.id == interaction.user.id and msg.attachments
+
+        try:
+            msg = await interaction.client.wait_for('message', check=check, timeout=60.0)
+        except:
+            embed = discord.Embed(
+                title="⏰ Tiempo agotado",
+                description="No enviaste la imagen a tiempo. Intenta de nuevo.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        attachment = msg.attachments[0]
+        if not attachment.content_type or not attachment.content_type.startswith('image/'):
+            embed = discord.Embed(
+                title="❌ No es una imagen",
+                description="Por favor envía una captura de pantalla, no otro tipo de archivo.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        image_data = await attachment.read()
+        
+        if not HAS_OCR:
+            embed = discord.Embed(
+                title="❌ Error de configuración",
+                description="El sistema de verificación no está disponible. Contacta al admin.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            text = pytesseract.image_to_string(image, lang='spa+eng')
+            text_lower = text.lower()
+        except Exception as e:
+            embed = discord.Embed(
+                title="❌ Error al procesar imagen",
+                description="No pude leer la imagen. Intenta con otra captura más clara.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        has_subscribed = any(kw in text_lower for kw in SUBSCRIBED_KEYWORDS)
+        has_channel = any(name in text_lower for name in YOUTUBE_CHANNEL_NAMES)
+        has_youtube = "youtube" in text_lower or "youtu.be" in text_lower
+
+        if has_subscribed and (has_channel or has_youtube):
+            role = interaction.guild.get_role(MIEMBRO_ROLE_ID)
+            if role:
+                await interaction.user.add_roles(role)
+            
+            db.create_user(interaction.user.id, interaction.user.display_name)
+            db.set_verified(interaction.user.id, True, "youtube", "youtube-screenshot")
+            
+            embed = discord.Embed(
+                title="✅ ¡Verificación exitosa!",
+                description=(
+                    f"Se confirmó que estás suscrito a mi canal de YouTube.\n"
+                    f"Se te ha asignado el rol **{role.name}**.\n\n"
+                    f"¡Gracias por suscribirte! 🔔"
+                ),
+                color=discord.Color.green()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=False)
+        else:
+            reasons = []
+            if not has_subscribed:
+                reasons.append("no se detectó \"Suscrito\" o \"Subscribed\"")
+            if not has_channel and not has_youtube:
+                reasons.append("no se detectó el nombre del canal o YouTube")
+            
+            embed = discord.Embed(
+                title="❌ Verificación fallida",
+                description=(
+                    "La imagen no cumple con los requisitos.\n\n"
+                    f"**Motivo:** {', '.join(reasons)}\n\n"
+                    "**Asegúrate de:**\n"
+                    "- Enviar una captura de la página de suscripciones\n"
+                    "- Que se vea claramente que pone \"Suscrito\"\n"
+                    "- Que se vea el nombre del canal o el logo de YouTube"
+                ),
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 class VerifyMainView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -448,27 +589,30 @@ class VerifyMainView(ui.View):
                 ephemeral=True,
             )
             return
-        params = {
-            "client_id": GOOGLE_CLIENT_ID,
-            "redirect_uri": GOOGLE_REDIRECT_URI,
-            "response_type": "code",
-            "scope": "https://www.googleapis.com/auth/youtube.readonly",
-            "access_type": "offline",
-        }
-        url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
+        
+        if db.is_youtube_verified(str(interaction.user.id)):
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="✅ Ya estás verificado",
+                    description="Ya tienes la verificación de YouTube activa.",
+                    color=discord.Color.green(),
+                ),
+                ephemeral=True,
+            )
+            return
+
         embed = discord.Embed(
             title="▶️ Verificar con YouTube",
             description=(
-                f"**Paso 1:** Haz clic en el enlace de abajo y autoriza\n\n"
-                f"**Paso 2:** Se abrirá una página con un código verde. Cópialo.\n\n"
-                f"**Paso 3:** Haz clic en el botón **📋 Pegar código YouTube** de abajo y pégalo\n\n"
-                f"**[Clic aquí para autorizar]({url})**\n\n"
-                f"⚠️ **Nota:** Si aparece un error 500, la aplicación de Google aún no está disponible para todos. "
-                f"Usa **🟣 Verificar con Twitch** como alternativa."
+                "**Paso 1:** Haz clic en el botón de abajo\n\n"
+                "**Paso 2:** Ve a mi canal de YouTube y suscríbete si no lo has hecho\n\n"
+                "**Paso 3:** Haz una captura de pantalla de que estás suscrito\n\n"
+                "**Paso 4:** Envía la captura aquí\n\n"
+                "El bot verificará automáticamente tu suscripción."
             ),
             color=discord.Color.red(),
         )
-        await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=YouTubeScreenshotView(), ephemeral=True)
 
     @ui.button(label="Verificar con Twitch", style=discord.ButtonStyle.green, emoji="🟣", custom_id="verify_main_twitch_v3")
     async def twitch_button(self, interaction: discord.Interaction, button: ui.Button):
@@ -594,11 +738,9 @@ class Verify(commands.Cog):
                 "Para acceder al servidor, debes seguirme en **Twitch** o **YouTube**.\n\n"
                 "**¿Cómo verificar?**\n"
                 "1. Haz clic en uno de los botones de abajo\n"
-                "2. Autoriza la app\n"
-                "3. Copia el código de la URL\n"
-                "4. Pega el código en el botón que aparece\n\n"
+                "2. Sigue los pasos que se muestran\n\n"
                 "**Opciones:**\n"
-                "▶️ **YouTube** → Verifica directamente con tu cuenta de Google\n"
+                "▶️ **YouTube** → Envía un screenshot de que estás suscrito\n"
                 "🟣 **Twitch** → Verifica directamente con tu cuenta de Twitch\n\n"
                 "**Requisitos:**\n"
                 "• Debes seguir el canal en **Twitch** o estar suscrito en **YouTube**\n"
@@ -701,5 +843,5 @@ def check_youtube_subscription(channel_name: str) -> bool:
 async def setup(bot: commands.Bot):
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyMainView())
-    bot.add_view(YouTubeCodeView())
+    bot.add_view(YouTubeScreenshotView())
     bot.add_view(TwitchCodeView())
