@@ -471,11 +471,11 @@ class YouTubeScreenshotView(ui.View):
                 description=(
                     "Envía aquí una captura de pantalla de que estás **suscrito** a mi canal de YouTube.\n\n"
                     "**Cómo hacerlo:**\n"
-                    "1. Ve a mi canal de YouTube\n"
+                    "1. Haz clic en el enlace de abajo para ir a mi canal\n"
                     "2. Haz clic en el botón de suscripción\n"
                     "3. Haz una captura de pantalla que muestre que pone \"Suscrito\"\n"
                     "4. Envía la imagen aquí\n\n"
-                    "⏰ Tienes 120 segundos para enviar la imagen."
+                    f"▶️ **[Ir a mi canal de YouTube](https://youtube.com/@pokejgamer)**"
                 ),
                 color=discord.Color.blue()
             )
@@ -503,18 +503,8 @@ class YouTubeScreenshotView(ui.View):
             return msg.author.id == interaction.user.id and msg.guild is None and msg.attachments
 
         try:
-            msg = await interaction.client.wait_for('message', check=check, timeout=120.0)
+            msg = await interaction.client.wait_for('message', check=check, timeout=None)
         except:
-            try:
-                await interaction.user.send(
-                    embed=discord.Embed(
-                        title="⏰ Tiempo agotado",
-                        description="No enviaste la imagen a tiempo. Usa el botón de nuevo.",
-                        color=discord.Color.red()
-                    )
-                )
-            except:
-                pass
             return
 
         attachment = msg.attachments[0]
