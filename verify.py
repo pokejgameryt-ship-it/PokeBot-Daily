@@ -465,54 +465,79 @@ class YouTubeScreenshotView(ui.View):
 
     @ui.button(label="📸 Enviar screenshot", style=discord.ButtonStyle.red, emoji="📸", custom_id="yt_screenshot_btn")
     async def screenshot_button(self, interaction: discord.Interaction, button: ui.Button):
-        embed = discord.Embed(
-            title="📸 Envía tu screenshot",
-            description=(
-                "Envía una captura de pantalla de que estás **suscrito** a mi canal de YouTube.\n\n"
-                "**Cómo hacerlo:**\n"
-                "1. Ve a mi canal de YouTube\n"
-                "2. Haz clic en el botón de suscripción\n"
-                "3. Haz una captura de pantalla que muestre que pone \"Suscrito\"\n"
-                "4. Envía la imagen aquí\n\n"
-                "⏰ Tienes 60 segundos para enviar la imagen."
-            ),
-            color=discord.Color.blue()
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        try:
+            dm_embed = discord.Embed(
+                title="📸 Envía tu screenshot de YouTube",
+                description=(
+                    "Envía aquí una captura de pantalla de que estás **suscrito** a mi canal de YouTube.\n\n"
+                    "**Cómo hacerlo:**\n"
+                    "1. Ve a mi canal de YouTube\n"
+                    "2. Haz clic en el botón de suscripción\n"
+                    "3. Haz una captura de pantalla que muestre que pone \"Suscrito\"\n"
+                    "4. Envía la imagen aquí\n\n"
+                    "⏰ Tienes 120 segundos para enviar la imagen."
+                ),
+                color=discord.Color.blue()
+            )
+            await interaction.user.send(embed=dm_embed)
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="📩 Te he enviado un MD",
+                    description="Revisa tus mensajes privados para completar la verificación.",
+                    color=discord.Color.blue()
+                ),
+                ephemeral=True
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="❌ No puedo enviarte MD",
+                    description="Tienes los mensajes privados desactivados. Actívalos para verificar.",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
+            return
 
         def check(msg):
-            return msg.author.id == interaction.user.id and msg.attachments
+            return msg.author.id == interaction.user.id and msg.guild is None and msg.attachments
 
         try:
-            msg = await interaction.client.wait_for('message', check=check, timeout=60.0)
+            msg = await interaction.client.wait_for('message', check=check, timeout=120.0)
         except:
-            embed = discord.Embed(
-                title="⏰ Tiempo agotado",
-                description="No enviaste la imagen a tiempo. Intenta de nuevo.",
-                color=discord.Color.red()
-            )
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            try:
+                await interaction.user.send(
+                    embed=discord.Embed(
+                        title="⏰ Tiempo agotado",
+                        description="No enviaste la imagen a tiempo. Usa el botón de nuevo.",
+                        color=discord.Color.red()
+                    )
+                )
+            except:
+                pass
             return
 
         attachment = msg.attachments[0]
         if not attachment.content_type or not attachment.content_type.startswith('image/'):
-            embed = discord.Embed(
-                title="❌ No es una imagen",
-                description="Por favor envía una captura de pantalla, no otro tipo de archivo.",
-                color=discord.Color.red()
+            await interaction.user.send(
+                embed=discord.Embed(
+                    title="❌ No es una imagen",
+                    description="Por favor envía una captura de pantalla, no otro tipo de archivo. Intenta de nuevo.",
+                    color=discord.Color.red()
+                )
             )
-            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         image_data = await attachment.read()
         
         if not HAS_OCR:
-            embed = discord.Embed(
-                title="❌ Error de configuración",
-                description="El sistema de verificación no está disponible. Contacta al admin.",
-                color=discord.Color.red()
+            await interaction.user.send(
+                embed=discord.Embed(
+                    title="❌ Error de configuración",
+                    description="El sistema de verificación no está disponible. Contacta al admin.",
+                    color=discord.Color.red()
+                )
             )
-            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         try:
@@ -520,12 +545,13 @@ class YouTubeScreenshotView(ui.View):
             text = pytesseract.image_to_string(image, lang='spa+eng')
             text_lower = text.lower()
         except Exception as e:
-            embed = discord.Embed(
-                title="❌ Error al procesar imagen",
-                description="No pude leer la imagen. Intenta con otra captura más clara.",
-                color=discord.Color.red()
+            await interaction.user.send(
+                embed=discord.Embed(
+                    title="❌ Error al procesar imagen",
+                    description="No pude leer la imagen. Intenta con otra captura más clara.",
+                    color=discord.Color.red()
+                )
             )
-            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         has_subscribed = any(kw in text_lower for kw in SUBSCRIBED_KEYWORDS)
@@ -540,16 +566,17 @@ class YouTubeScreenshotView(ui.View):
             db.create_user(interaction.user.id, interaction.user.display_name)
             db.set_verified(interaction.user.id, True, "youtube", "youtube-screenshot")
             
-            embed = discord.Embed(
-                title="✅ ¡Verificación exitosa!",
-                description=(
-                    f"Se confirmó que estás suscrito a mi canal de YouTube.\n"
-                    f"Se te ha asignado el rol **{role.name}**.\n\n"
-                    f"¡Gracias por suscribirte! 🔔"
-                ),
-                color=discord.Color.green()
+            await interaction.user.send(
+                embed=discord.Embed(
+                    title="✅ ¡Verificación exitosa!",
+                    description=(
+                        f"Se confirmó que estás suscrito a mi canal de YouTube.\n"
+                        f"Se te ha asignado el rol **{role.name}**.\n\n"
+                        f"¡Gracias por suscribirte! 🔔"
+                    ),
+                    color=discord.Color.green()
+                )
             )
-            await interaction.followup.send(embed=embed, ephemeral=False)
         else:
             reasons = []
             if not has_subscribed:
@@ -557,19 +584,21 @@ class YouTubeScreenshotView(ui.View):
             if not has_channel and not has_youtube:
                 reasons.append("no se detectó el nombre del canal o YouTube")
             
-            embed = discord.Embed(
-                title="❌ Verificación fallida",
-                description=(
-                    "La imagen no cumple con los requisitos.\n\n"
-                    f"**Motivo:** {', '.join(reasons)}\n\n"
-                    "**Asegúrate de:**\n"
-                    "- Enviar una captura de la página de suscripciones\n"
-                    "- Que se vea claramente que pone \"Suscrito\"\n"
-                    "- Que se vea el nombre del canal o el logo de YouTube"
-                ),
-                color=discord.Color.red()
+            await interaction.user.send(
+                embed=discord.Embed(
+                    title="❌ Verificación fallida",
+                    description=(
+                        "La imagen no cumple con los requisitos.\n\n"
+                        f"**Motivo:** {', '.join(reasons)}\n\n"
+                        "**Asegúrate de:**\n"
+                        "- Enviar una captura de la página de suscripciones\n"
+                        "- Que se vea claramente que pone \"Suscrito\"\n"
+                        "- Que se vea el nombre del canal o el logo de YouTube\n\n"
+                        "Intenta de nuevo con el botón."
+                    ),
+                    color=discord.Color.red()
+                )
             )
-            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 class VerifyMainView(ui.View):
