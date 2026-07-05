@@ -461,7 +461,7 @@ class YouTubeScreenshotModal(ui.Modal, title="Verificación de YouTube"):
 
 class YouTubeScreenshotView(ui.View):
     def __init__(self):
-        super().__init__(timeout=120)
+        super().__init__(timeout=None)
 
     @ui.button(label="📸 Enviar screenshot", style=discord.ButtonStyle.red, emoji="📸", custom_id="yt_screenshot_btn")
     async def screenshot_button(self, interaction: discord.Interaction, button: ui.Button):
