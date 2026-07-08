@@ -1,6 +1,4 @@
 import random
-import json
-import os
 import requests
 import logging
 
@@ -16,33 +14,43 @@ TYPE_NAMES_ES = {
     "steel": "Acero", "fairy": "Hada",
 }
 
+CATEGORY_NAMES_ES = {
+    "seed": "Semilla", "lizard": "Lagartija", "flame": "Llama", "turtle": "Tortuga",
+    "pokemon": "Pokémon", "mouse": "Ratón", "bird": "Pájaro", "snake": "Serpiente",
+    "dragon": "Dragón", "fish": "Pez", "fox": "Zorro", "cat": "Gato",
+    "dog": "Perlo", "bear": "Oso", "insect": "Insecto", "crab": "Cangrejo",
+    "bat": "Murciélago", "ghost": "Fantasma", "skull": "Cráneo", "bone": "Hueso",
+    "light": "Luz", "shadow": "Sombra", "aura": "Aura", "mystic": "Místico",
+    "steel": "Acero", "iron": "Hierro", "gem": "Gema", "fossil": "Fósil",
+    "plant": "Planta", "flower": "Flor", "leaf": "Hoja", "tree": "Árbol",
+    "water": "Agua", "sea": "Mar", "ocean": "Océano", "bubble": "Burbuja",
+    "electric": "Eléctrico", "thunder": "Trueno", "spark": "Chispa",
+    "fire": "Fuego", "burn": "Quemadura", "eruption": "Erupción",
+    "ice": "Hielo", "frost": "Escarcha", "snow": "Nieve",
+    "rock": "Roca", "stone": "Piedra", "boulder": "Rocalla",
+    "ground": "Tierra", "mud": "Lodo", "sand": "Arena",
+    "poison": "Veneno", "gas": "Gas", "noxious": "Nocivo",
+    "psychic": "Psíquico", "brain": "Cerebro", "emotion": "Emoción",
+    "fighting": "Lucha", "combat": "Combate", "martial": "Marcial",
+    "dark": "Siniestro", "bad": "Malvado", "evil": "Maligno",
+    "fairy": "Hada", "pixie": "Duende", "wing": "Ala",
+}
+
 POKEMON_IDS = list(range(1, 650))
 
 _name_cache = {}
-_fallback_pool = []
-
-
-def _load_fallback_pool() -> list:
-    global _fallback_pool
-    if _fallback_pool:
-        return _fallback_pool
-    try:
-        path = os.path.join(os.path.dirname(__file__), "fallback_trivia.json")
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            _fallback_pool = data.get("trivia", [])
-            log.info(f"Loaded {len(_fallback_pool)} fallback questions")
-            return _fallback_pool
-    except Exception as e:
-        log.error(f"Error loading fallback bank: {e}")
-        return []
+_pokemon_cache = {}
 
 
 def _get_pokemon(pokemon_id: int) -> dict | None:
+    if pokemon_id in _pokemon_cache:
+        return _pokemon_cache[pokemon_id]
     try:
         resp = requests.get(f"{POKEAPI_BASE}/pokemon/{pokemon_id}", timeout=10)
         if resp.status_code == 200:
-            return resp.json()
+            data = resp.json()
+            _pokemon_cache[pokemon_id] = data
+            return data
     except Exception as e:
         log.error(f"Error fetching pokemon {pokemon_id}: {e}")
     return None
@@ -102,7 +110,7 @@ def _generate_type_question() -> dict | None:
     types = [TYPE_NAMES_ES.get(t["type"]["name"], t["type"]["name"].capitalize()) for t in pokemon["types"]]
 
     correct = "/".join(types)
-    question = f"De que tipo es {name}?"
+    question = f"¿De qué tipo es {name}?"
 
     all_types = list(TYPE_NAMES_ES.values())
     wrong_types = [t for t in all_types if t not in types]
@@ -129,7 +137,7 @@ def _generate_stat_question() -> dict | None:
     correct_value = stats[stat_name]
     stat_label = _get_stat_name(stat_name)
 
-    question = f"Cuál es el stat base de {stat_label} de {name}?"
+    question = f"¿Cuál es el stat base de {stat_label} de {name}?"
 
     wrong_values = []
     offsets = [-25, -15, -10, 10, 15, 25]
@@ -163,7 +171,7 @@ def _generate_weight_question() -> dict | None:
     if weight_kg < 1:
         return None
 
-    question = f"Cuanto pesa {name} en kg?"
+    question = f"¿Cuánto pesa {name} en kg?"
 
     wrong_weights = []
     pct = weight_kg * 0.3
@@ -199,7 +207,7 @@ def _generate_height_question() -> dict | None:
     if height_m < 0.3:
         return None
 
-    question = f"Cuanto mide {name} en metros?"
+    question = f"¿Cuánto mide {name} en metros?"
 
     wrong_heights = []
     pct = height_m * 0.3
@@ -223,18 +231,116 @@ def _generate_height_question() -> dict | None:
     return {"question": question, "correct": f"{height_m:.1f}", "options": options}
 
 
+def _generate_category_question() -> dict | None:
+    pokemon_id = random.choice(POKEMON_IDS)
+    species = _get_species(pokemon_id)
+    if not species:
+        return None
+
+    name = _get_spanish_name(pokemon_id)
+
+    category_en = None
+    for entry in species.get("genera", []):
+        if entry.get("language", {}).get("name") == "en":
+            category_en = entry["genus"]
+            break
+
+    if not category_en:
+        return None
+
+    category_es = None
+    for entry in species.get("genera", []):
+        if entry.get("language", {}).get("name") == "es":
+            category_es = entry["genus"]
+            break
+
+    if not category_es:
+        category_es = category_en
+
+    question = f"¿Qué categoría tiene {name}?"
+
+    wrong_categories = [
+        "Pokémon Semilla", "Pokémon Lagartija", "Pokémon Llama",
+        "Pokémon Tortuga", "Pokémon Ratón", "Pokémon Dragón",
+        "Pokémon Pez", "Pokémon Zorro", "Pokémon Gato",
+        "Pokémon Oso", "Pokémon Insecto", "Pokémon Hada",
+    ]
+    wrong_categories = [c for c in wrong_categories if c != category_es]
+    if len(wrong_categories) < 2:
+        return None
+    wrong_options = random.sample(wrong_categories, 2)
+
+    options = [category_es] + wrong_options
+    random.shuffle(options)
+
+    return {"question": question, "correct": category_es, "options": options}
+
+
+def _generate_comparison_question() -> dict | None:
+    id1, id2 = random.sample(POKEMON_IDS, 2)
+    p1 = _get_pokemon(id1)
+    p2 = _get_pokemon(id2)
+    if not p1 or not p2:
+        return None
+
+    name1 = _get_spanish_name(id1)
+    name2 = _get_spanish_name(id2)
+
+    stat = random.choice(["weight", "height", "hp", "attack", "defense", "speed"])
+
+    if stat == "weight":
+        val1 = p1["weight"] / 10
+        val2 = p2["weight"] / 10
+        unit = "kg"
+        attr = "pesa"
+    elif stat == "height":
+        val1 = p1["height"] / 10
+        val2 = p2["height"] / 10
+        unit = "m"
+        attr = "mide"
+    else:
+        stats1 = {s["stat"]["name"]: s["base_stat"] for s in p1["stats"]}
+        stats2 = {s["stat"]["name"]: s["base_stat"] for s in p2["stats"]}
+        val1 = stats1.get(stat, 0)
+        val2 = stats2.get(stat, 0)
+        unit = ""
+        attr = f"tiene de {_get_stat_name(stat)}"
+
+    if val1 == val2:
+        return None
+
+    if val1 > val2:
+        correct = name1
+        wrong = name2
+    else:
+        correct = name2
+        wrong = name1
+
+    if unit:
+        question = f"¿Quién {attr} más, {name1} o {name2}?"
+    else:
+        question = f"¿Quién {attr} más, {name1} o {name2}?"
+
+    options = [correct, wrong, "Son iguales"]
+    random.shuffle(options)
+
+    return {"question": question, "correct": correct, "options": options}
+
+
 def generate_daily_trivia() -> dict:
     generators = [
         _generate_type_question,
         _generate_stat_question,
         _generate_weight_question,
         _generate_height_question,
+        _generate_category_question,
+        _generate_comparison_question,
     ]
 
     random.shuffle(generators)
 
     for gen_func in generators:
-        for _ in range(5):
+        for _ in range(10):
             try:
                 question = gen_func()
                 if question:
@@ -244,15 +350,8 @@ def generate_daily_trivia() -> dict:
                 log.error(f"Error generating question: {e}")
                 continue
 
-    # Fallback to verified local bank
-    pool = _load_fallback_pool()
-    if pool:
-        question = random.choice(pool)
-        log.info(f"Using fallback question: {question['question']}")
-        return question
-
     return {
-        "question": "De que tipo es Pikachu?",
+        "question": "¿De qué tipo es Pikachu?",
         "correct": "Eléctrico",
         "options": ["Eléctrico", "Fuego", "Agua"],
     }
