@@ -2,18 +2,17 @@ import random
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import database as db
 from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID, STREAK_ROLE_ID
+
+TZ_SPAIN = timezone(timedelta(hours=2))
 
 DIFFICULTY_CONFIG = {
     "easy": {"label": "Fácil", "emoji": "🟢", "points": 5, "color": discord.Color.green()},
     "medium": {"label": "Intermedia", "emoji": "🟡", "points": 10, "color": discord.Color.gold()},
     "hard": {"label": "Difícil", "emoji": "🔴", "points": 15, "color": discord.Color.red()},
 }
-
-import hashlib
-import json
 
 TRIVIA_STORE = {}
 
@@ -118,88 +117,185 @@ class TriviaView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-class WeeklyQuizView(discord.ui.View):
-    def __init__(self, questions: list, week_key: str):
+class WeeklyQuizStartView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="🎯 Empezar Quiz Semanal", style=discord.ButtonStyle.green, emoji="🎯", custom_id="weekly_quiz_start_btn")
+    async def start_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        uid = interaction.user.id
+
+        existing = db.get_active_weekly_quiz()
+        if not existing:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="❌ No hay quiz activo",
+                    description="No hay quiz semanal activo en este momento.",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
+            return
+
+        week_key = existing["id"]
+        answers = db.get_weekly_quiz_answers(week_key)
+        if str(uid) in answers:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="✅ Ya completaste el quiz",
+                    description="Ya has completado el quiz semanal de esta semana.",
+                    color=discord.Color.green()
+                ),
+                ephemeral=True
+            )
+            return
+
+        questions = existing.get("questions", [])
+        if not questions:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="❌ Error",
+                    description="No hay preguntas en el quiz.",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
+            return
+
+        try:
+            dm_embed = discord.Embed(
+                title="🎯 Quiz Semanal de Pokémon",
+                description=(
+                    "Te he enviado las preguntas por MD.\n"
+                    "Responde las 10 preguntas de Verdadero o Falso.\n\n"
+                    "¡Buena suerte! 🍀"
+                ),
+                color=discord.Color.blue()
+            )
+            await interaction.user.send(embed=dm_embed)
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="📩 Te he enviado un MD",
+                    description="Revisa tus mensajes privados para el quiz semanal.",
+                    color=discord.Color.blue()
+                ),
+                ephemeral=True
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="❌ No puedo enviarte MD",
+                    description="Tienes los mensajes privados desactivados. Actívalos para el quiz.",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
+            return
+
+        await send_quiz_question(interaction.user, questions, 0, week_key, [])
+
+
+async def send_quiz_question(user, questions, current_idx, week_key, answers):
+    if current_idx >= len(questions):
+        await finish_weekly_quiz(user, questions, answers, week_key)
+        return
+
+    q = questions[current_idx]
+    embed = discord.Embed(
+        title=f"🎯 Quiz Semanal - Pregunta {current_idx + 1}/{len(questions)}",
+        description=f"**{q['question']}**",
+        color=discord.Color.blue(),
+    )
+    embed.set_footer(text=f"Respuestas: {current_idx}/{len(questions)} | Responde por MD")
+
+    view = WeeklyQuizAnswerView(questions, current_idx, week_key, answers)
+    try:
+        await user.send(embed=embed, view=view)
+    except:
+        pass
+
+
+class WeeklyQuizAnswerView(discord.ui.View):
+    def __init__(self, questions, current_idx, week_key, answers):
         super().__init__(timeout=None)
         self.questions = questions
+        self.current_idx = current_idx
         self.week_key = week_key
-        self.user_responses = {}
+        self.answers = answers
 
-    @discord.ui.button(label="✅ Verdadero", style=discord.ButtonStyle.green, custom_id="wq_true")
+    @discord.ui.button(label="✅ Verdadero", style=discord.ButtonStyle.green, custom_id="wq_answer_true")
     async def true_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.process_answer(interaction, True)
 
-    @discord.ui.button(label="❌ Falso", style=discord.ButtonStyle.red, custom_id="wq_false")
+    @discord.ui.button(label="❌ Falso", style=discord.ButtonStyle.red, custom_id="wq_answer_false")
     async def false_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.process_answer(interaction, False)
 
     async def process_answer(self, interaction: discord.Interaction, answer: bool):
-        uid = interaction.user.id
+        new_answers = self.answers + [answer]
+        next_idx = self.current_idx + 1
 
-        if uid not in self.user_responses:
-            self.user_responses[uid] = {"answers": [], "current": 0}
+        q = self.questions[self.current_idx]
+        correct_emoji = "✅" if answer == q["answer"] else "❌"
+        result_text = f"{correct_emoji} Tu respuesta: **{'Verdadero' if answer else 'Falso'}**\n"
+        result_text += f"Respuesta correcta: **{'Verdadero' if q['answer'] else 'Falso'}**"
 
-        user_data = self.user_responses[uid]
-        idx = user_data["current"]
-
-        if idx >= len(self.questions):
-            await interaction.response.send_message(
-                "Ya has completado el quiz semanal.", ephemeral=True
-            )
-            return
-
-        user_data["answers"].append(answer)
-        user_data["current"] += 1
-
-        if user_data["current"] >= len(self.questions):
-            await self.finish_quiz(interaction, uid)
-        else:
-            q = self.questions[user_data["current"]]
-            embed = discord.Embed(
-                title=f"📋 Quiz Semanal - Pregunta {user_data['current'] + 1}/{len(self.questions)}",
-                description=f"**{q['question']}**",
-                color=discord.Color.blue(),
-            )
-            embed.set_footer(text=f"Respuestas: {user_data['current']}/{len(self.questions)}")
-            await interaction.response.edit_message(embed=embed, view=self)
-
-    async def finish_quiz(self, interaction: discord.Interaction, uid: int):
-        user_data = self.user_responses[uid]
-        correct = 0
-        for i, q in enumerate(self.questions):
-            if i < len(user_data["answers"]) and user_data["answers"][i] == q["answer"]:
-                correct += 1
-
-        if correct == 10:
-            points = 50
-        elif correct >= 7:
-            points = 20
-        elif correct >= 5:
-            points = 10
-        else:
-            points = 5
-
-        member = interaction.guild.get_member(uid)
-        username = member.display_name if member else "Unknown"
-        db.update_score(uid, points, username)
-        db.save_weekly_quiz_answer(self.week_key, uid, user_data["answers"], correct, username)
-
-        embed = discord.Embed(
-            title="🎉 Quiz Semanal Completado",
-            description=f"Has acertado **{correct}/10** preguntas",
-            color=discord.Color.green() if correct >= 7 else discord.Color.orange(),
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title=f"Respuesta {self.current_idx + 1}/{len(self.questions)}",
+                description=result_text,
+                color=discord.Color.green() if answer == q["answer"] else discord.Color.red()
+            ),
+            ephemeral=True
         )
-        embed.add_field(name="Puntos ganados", value=f"+{points}")
-        embed.add_field(name="Total", value=str(db.get_total_score(uid)))
 
-        result_text = ""
-        for i, q in enumerate(self.questions):
-            user_ans = user_data["answers"][i] if i < len(user_data["answers"]) else None
-            correct_emoji = "✅" if user_ans == q["answer"] else "❌"
-            result_text += f"{correct_emoji} {q['question']}\n"
-        embed.add_field(name="Resultados", value=result_text, inline=False)
+        await send_quiz_question(
+            interaction.user,
+            self.questions,
+            next_idx,
+            self.week_key,
+            new_answers
+        )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+async def finish_weekly_quiz(user, questions, answers, week_key):
+    correct = 0
+    for i, q in enumerate(questions):
+        if i < len(answers) and answers[i] == q["answer"]:
+            correct += 1
+
+    if correct == 10:
+        points = 50
+    elif correct >= 7:
+        points = 20
+    elif correct >= 5:
+        points = 10
+    else:
+        points = 5
+
+    username = user.display_name
+    db.update_score(user.id, points, username)
+    db.save_weekly_quiz_answer(week_key, user.id, answers, correct, username)
+
+    result_text = ""
+    for i, q in enumerate(questions):
+        user_ans = answers[i] if i < len(answers) else None
+        correct_emoji = "✅" if user_ans == q["answer"] else "❌"
+        result_text += f"{correct_emoji} {q['question']}\n"
+
+    embed = discord.Embed(
+        title="🎉 Quiz Semanal Completado",
+        description=f"Has acertado **{correct}/10** preguntas",
+        color=discord.Color.green() if correct >= 7 else discord.Color.orange(),
+    )
+    embed.add_field(name="Puntos ganados", value=f"+{points}")
+    embed.add_field(name="Total", value=str(db.get_total_score(user.id)))
+    embed.add_field(name="Resultados", value=result_text, inline=False)
+
+    try:
+        await user.send(embed=embed)
+    except:
+        pass
 
 
 TRUE_FALSE_QUESTIONS = [
@@ -275,8 +371,6 @@ TRUE_FALSE_QUESTIONS = [
     {"question": "Eevee es de tipo Normal", "answer": True},
     {"question": "Gyarados es de tipo Agua/Volador", "answer": True},
     {"question": "Gyarados es de tipo Dragón", "answer": False},
-    {"question": "Charizard es de tipo Fuego/Volador", "answer": True},
-    {"question": "Charizard es de tipo Dragón", "answer": False},
     {"question": "Rayquaza es de tipo Dragón/Volador", "answer": True},
     {"question": "Rayquaza es de tipo Dragón/Fuego", "answer": False},
     {"question": "Groudon es de tipo Tierra", "answer": True},
@@ -293,8 +387,6 @@ TRUE_FALSE_QUESTIONS = [
     {"question": "Arceus es de tipo Psíquico", "answer": False},
     {"question": "El Movimiento Hoja Afilada es de tipo Planta", "answer": True},
     {"question": "El Movimiento Hoja Afilada es de tipo Normal", "answer": False},
-    {"question": "El Movimiento Danza Espada es de tipo Normal", "answer": True},
-    {"question": "El Movimiento Danza Espada es de tipo Lucha", "answer": False},
 ]
 
 
@@ -308,7 +400,7 @@ class Trivia(commands.Cog):
 
     @tasks.loop(hours=24)
     async def weekly_quiz_task(self):
-        now = datetime.now()
+        now = datetime.now(TZ_SPAIN)
         if now.weekday() != 0:
             return
         if now.hour != 10 or now.minute != 0:
@@ -325,23 +417,30 @@ class Trivia(commands.Cog):
 
         existing = db.get_active_weekly_quiz()
         if existing:
-            return
+            old_key = existing["id"]
+            new_week = now.strftime("%Y-W%W")
+            if old_key != new_week:
+                db.close_weekly_quiz(old_key)
+            else:
+                return
 
-        from question_gen import get_weekly_questions
-        questions = get_weekly_questions(TRUE_FALSE_QUESTIONS, 10)
+        questions = random.sample(TRUE_FALSE_QUESTIONS, 10)
         week_key = now.strftime("%Y-W%W")
         db.save_weekly_quiz(questions, week_key)
 
         embed = discord.Embed(
             title="🎯 Quiz Semanal de Pokémon",
-            description="¡10 preguntas de Verdadero o Falso! Responde todas para ganar puntos.\n\n"
-                       "10/10 = **50 puntos** | 7-9 = **20 puntos** | 5-6 = **10 puntos** | 1-4 = **5 puntos**\n\n"
-                       " Usa los botones para responder. ¡Buena suerte!",
+            description=(
+                "¡10 preguntas de Verdadero o Falso!\n\n"
+                "10/10 = **50 puntos** | 7-9 = **20 puntos** | 5-6 = **10 puntos** | 1-4 = **5 puntos**\n\n"
+                "Haz clic en el botón de abajo para empezar. Las preguntas se envían por MD.\n"
+                "Disponible hasta el próximo lunes a las 10:00."
+            ),
             color=discord.Color.gold(),
         )
-        embed.set_footer(text="Cada pregunta se envía por separado (ephemeral)")
+        embed.set_footer(text="Cada persona puede responder una vez")
 
-        view = WeeklyQuizView(questions, week_key)
+        view = WeeklyQuizStartView()
         await channel.send(embed=embed, view=view)
 
     @weekly_quiz_task.before_loop
