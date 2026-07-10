@@ -474,7 +474,8 @@ class Trivia(commands.Cog):
         from pokeapi_trivia import generate_daily_trivia
 
         difficulty = random.choice(["easy", "medium", "hard"])
-        trivia = generate_daily_trivia()
+        used_questions = db.get_used_questions()
+        trivia = generate_daily_trivia(used_questions)
         if not trivia:
             await ctx.send("❌ No se pudo generar la pregunta. Inténtalo de nuevo.")
             return
@@ -482,6 +483,7 @@ class Trivia(commands.Cog):
         random.shuffle(options)
 
         db.save_trivia_question(trivia["question"], trivia["correct"], options)
+        db.mark_question_used(trivia["question"])
 
         diff_config = DIFFICULTY_CONFIG[difficulty]
         embed = discord.Embed(
@@ -529,7 +531,8 @@ class Trivia(commands.Cog):
         from pokeapi_trivia import generate_daily_trivia
 
         difficulty = random.choice(["easy", "medium", "hard"])
-        trivia = generate_daily_trivia()
+        used_questions = db.get_used_questions()
+        trivia = generate_daily_trivia(used_questions)
         if not trivia:
             await interaction.response.send_message("❌ No se pudo generar la pregunta. Inténtalo de nuevo.")
             return
@@ -537,6 +540,7 @@ class Trivia(commands.Cog):
         random.shuffle(options)
 
         db.save_trivia_question(trivia["question"], trivia["correct"], options)
+        db.mark_question_used(trivia["question"])
 
         diff_config = DIFFICULTY_CONFIG[difficulty]
         embed = discord.Embed(

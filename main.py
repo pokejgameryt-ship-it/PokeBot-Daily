@@ -156,8 +156,8 @@ async def daily_trivia_task():
 
         difficulty = random.choice(["easy", "medium", "hard"])
         
-        # Generate question from PokeAPI (100% verified data)
-        trivia = generate_daily_trivia()
+        used_questions = db.get_used_questions()
+        trivia = generate_daily_trivia(used_questions)
         if not trivia:
             logging.error("generate_daily_trivia returned None")
             return
@@ -167,6 +167,7 @@ async def daily_trivia_task():
 
         correct = trivia["correct"]
         db.save_trivia_question(trivia["question"], correct, options)
+        db.mark_question_used(trivia["question"])
 
         daily = db.get_daily_trivia()
         if not daily:

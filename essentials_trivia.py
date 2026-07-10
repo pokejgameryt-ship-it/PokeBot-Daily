@@ -696,20 +696,30 @@ GENERATORS = [
 ]
 
 
-def generate_essentials_trivia() -> dict:
+def generate_essentials_trivia(used_questions: set = None) -> dict:
     load_all()
+    if used_questions is None:
+        used_questions = set()
     generators = GENERATORS.copy()
     random.shuffle(generators)
     for gen_func in generators:
-        for _ in range(10):
+        for _ in range(20):
             try:
                 question = gen_func()
-                if question:
+                if question and question["question"] not in used_questions:
                     log.info(f"Generated essentials trivia: {question['question']}")
                     return question
             except Exception as e:
                 log.error(f"Error generating question: {e}")
                 continue
+    for gen_func in generators:
+        try:
+            question = gen_func()
+            if question:
+                log.info(f"Generated essentials trivia (fallback): {question['question']}")
+                return question
+        except Exception as e:
+            continue
     return {
         "question": "¿De qué tipo es BULBASAUR?",
         "correct": "GRASS/POISON",
