@@ -583,5 +583,38 @@ class Trivia(commands.Cog):
         await ctx.send(embed=embed)
 
 
+class _TriviaViewPersist(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="A", style=discord.ButtonStyle.primary, custom_id="trivia_btn_a")
+    async def option_a(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+    @discord.ui.button(label="B", style=discord.ButtonStyle.primary, custom_id="trivia_btn_b")
+    async def option_b(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+    @discord.ui.button(label="C", style=discord.ButtonStyle.primary, custom_id="trivia_btn_c")
+    async def option_c(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+
+class _WeeklyQuizAnswerViewPersist(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="✅ Verdadero", style=discord.ButtonStyle.green, custom_id="wq_answer_true")
+    async def true_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+    @discord.ui.button(label="❌ Falso", style=discord.ButtonStyle.red, custom_id="wq_answer_false")
+    async def false_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass
+
+
 async def setup(bot: commands.Bot):
+    bot.add_view(_TriviaViewPersist())
+    bot.add_view(WeeklyQuizStartView())
+    bot.add_view(_WeeklyQuizAnswerViewPersist())
     await bot.add_cog(Trivia(bot))
