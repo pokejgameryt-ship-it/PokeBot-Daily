@@ -157,10 +157,13 @@ async def daily_trivia_task():
         difficulty = random.choice(["easy", "medium", "hard"])
         
         used_questions = db.get_used_questions()
+        logging.info(f"Used questions count: {len(used_questions)}")
         trivia = generate_daily_trivia(used_questions)
         if not trivia:
             logging.error("generate_daily_trivia returned None")
             return
+        
+        logging.info(f"Generated trivia: {trivia['question'][:50]}...")
 
         options = trivia["options"][:]
         random.shuffle(options)

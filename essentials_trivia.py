@@ -19,7 +19,7 @@ def _parse_types():
     global _types_data
     filepath = os.path.join(DATA_DIR, "types.txt")
     current_type = None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line.startswith("[") and line.endswith("]"):
@@ -38,7 +38,7 @@ def _parse_pokemon():
     global _pokemon_data
     filepath = os.path.join(DATA_DIR, "pokemon.txt")
     current_id = None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line.startswith("[") and line.endswith("]"):
@@ -107,7 +107,7 @@ def _parse_moves():
     global _moves_data
     filepath = os.path.join(DATA_DIR, "moves.txt")
     current_move = None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line.startswith("[") and line.endswith("]"):
@@ -138,7 +138,7 @@ def _parse_abilities():
     global _abilities_data
     filepath = os.path.join(DATA_DIR, "abilities.txt")
     current_ability = None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line.startswith("[") and line.endswith("]"):
@@ -159,7 +159,7 @@ def _parse_items():
     global _items_data
     filepath = os.path.join(DATA_DIR, "items.txt")
     current_item = None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line.startswith("[") and line.endswith("]"):
