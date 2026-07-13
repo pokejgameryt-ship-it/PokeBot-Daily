@@ -19,232 +19,263 @@ def _parse_types():
     global _types_data
     filepath = os.path.join(DATA_DIR, "types.txt")
     current_type = None
-    with open(filepath, "r", encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[") and line.endswith("]"):
-                current_type = line[1:-1]
-                _types_data[current_type] = {"weaknesses": [], "resistances": [], "immunities": []}
-            elif line.startswith("Weaknesses =") and current_type:
-                _types_data[current_type]["weaknesses"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
-            elif line.startswith("Resistances =") and current_type:
-                _types_data[current_type]["resistances"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
-            elif line.startswith("Immunities =") and current_type:
-                _types_data[current_type]["immunities"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
-    log.info(f"Loaded {len(_types_data)} types")
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current_type = line[1:-1]
+                    _types_data[current_type] = {"weaknesses": [], "resistances": [], "immunities": []}
+                elif line.startswith("Weaknesses =") and current_type:
+                    _types_data[current_type]["weaknesses"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
+                elif line.startswith("Resistances =") and current_type:
+                    _types_data[current_type]["resistances"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
+                elif line.startswith("Immunities =") and current_type:
+                    _types_data[current_type]["immunities"] = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
+        log.info(f"Loaded {len(_types_data)} types")
+    except Exception as e:
+        log.error(f"Failed to load types.txt: {e}")
 
 
 def _parse_pokemon():
     global _pokemon_data
     filepath = os.path.join(DATA_DIR, "pokemon.txt")
     current_id = None
-    with open(filepath, "r", encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[") and line.endswith("]"):
-                current_id = line[1:-1]
-                _pokemon_data[current_id] = {}
-            elif current_id and "=" in line:
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip()
-                if key == "Name":
-                    _pokemon_data[current_id]["name"] = val
-                elif key == "Types":
-                    _pokemon_data[current_id]["types"] = [t.strip() for t in val.split(",")]
-                elif key == "BaseStats":
-                    stats = [int(s.strip()) for s in val.split(",")]
-                    if len(stats) >= 6:
-                        _pokemon_data[current_id]["stats"] = {
-                            "hp": stats[0], "attack": stats[1], "defense": stats[2],
-                            "sp_attack": stats[3], "sp_defense": stats[4], "speed": stats[5]
-                        }
-                elif key == "Abilities":
-                    _pokemon_data[current_id]["abilities"] = [a.strip() for a in val.split(",")]
-                elif key == "HiddenAbilities":
-                    _pokemon_data[current_id]["hidden_ability"] = val
-                elif key == "Moves":
-                    moves = []
-                    parts = val.split(",")
-                    i = 0
-                    while i < len(parts) - 1:
-                        try:
-                            level = int(parts[i].strip())
-                            move_name = parts[i + 1].strip()
-                            moves.append({"level": level, "name": move_name})
-                        except (ValueError, IndexError):
-                            pass
-                        i += 2
-                    _pokemon_data[current_id]["moves"] = moves
-                elif key == "Height":
-                    _pokemon_data[current_id]["height"] = val
-                elif key == "Weight":
-                    _pokemon_data[current_id]["weight"] = val
-                elif key == "Category":
-                    _pokemon_data[current_id]["category"] = val
-                elif key == "Evolutions":
-                    _pokemon_data[current_id]["evolutions"] = val
-                elif key == "CatchRate":
-                    _pokemon_data[current_id]["catch_rate"] = val
-                elif key == "BaseExp":
-                    _pokemon_data[current_id]["base_exp"] = val
-                elif key == "EVs":
-                    _pokemon_data[current_id]["evs"] = val
-                elif key == "EggGroups":
-                    _pokemon_data[current_id]["egg_groups"] = val
-                elif key == "HatchSteps":
-                    _pokemon_data[current_id]["hatch_steps"] = val
-                elif key == "Color":
-                    _pokemon_data[current_id]["color"] = val
-                elif key == "Shape":
-                    _pokemon_data[current_id]["shape"] = val
-                elif key == "Generation":
-                    _pokemon_data[current_id]["generation"] = val
-    log.info(f"Loaded {len(_pokemon_data)} pokemon")
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current_id = line[1:-1]
+                    _pokemon_data[current_id] = {}
+                elif current_id and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key == "Name":
+                        _pokemon_data[current_id]["name"] = val
+                    elif key == "Types":
+                        _pokemon_data[current_id]["types"] = [t.strip() for t in val.split(",")]
+                    elif key == "BaseStats":
+                        stats = [int(s.strip()) for s in val.split(",")]
+                        if len(stats) >= 6:
+                            _pokemon_data[current_id]["stats"] = {
+                                "hp": stats[0], "attack": stats[1], "defense": stats[2],
+                                "sp_attack": stats[3], "sp_defense": stats[4], "speed": stats[5]
+                            }
+                    elif key == "Abilities":
+                        _pokemon_data[current_id]["abilities"] = [a.strip() for a in val.split(",")]
+                    elif key == "HiddenAbilities":
+                        _pokemon_data[current_id]["hidden_ability"] = val
+                    elif key == "Moves":
+                        moves = []
+                        parts = val.split(",")
+                        i = 0
+                        while i < len(parts) - 1:
+                            try:
+                                level = int(parts[i].strip())
+                                move_name = parts[i + 1].strip()
+                                moves.append({"level": level, "name": move_name})
+                            except (ValueError, IndexError):
+                                pass
+                            i += 2
+                        _pokemon_data[current_id]["moves"] = moves
+                    elif key == "Height":
+                        _pokemon_data[current_id]["height"] = val
+                    elif key == "Weight":
+                        _pokemon_data[current_id]["weight"] = val
+                    elif key == "Category":
+                        _pokemon_data[current_id]["category"] = val
+                    elif key == "Evolutions":
+                        _pokemon_data[current_id]["evolutions"] = val
+                    elif key == "CatchRate":
+                        _pokemon_data[current_id]["catch_rate"] = val
+                    elif key == "BaseExp":
+                        _pokemon_data[current_id]["base_exp"] = val
+                    elif key == "EVs":
+                        _pokemon_data[current_id]["evs"] = val
+                    elif key == "EggGroups":
+                        _pokemon_data[current_id]["egg_groups"] = val
+                    elif key == "HatchSteps":
+                        _pokemon_data[current_id]["hatch_steps"] = val
+                    elif key == "Color":
+                        _pokemon_data[current_id]["color"] = val
+                    elif key == "Shape":
+                        _pokemon_data[current_id]["shape"] = val
+                    elif key == "Generation":
+                        _pokemon_data[current_id]["generation"] = val
+        log.info(f"Loaded {len(_pokemon_data)} pokemon")
+    except Exception as e:
+        log.error(f"Failed to load pokemon.txt: {e}")
 
 
 def _parse_moves():
     global _moves_data
     filepath = os.path.join(DATA_DIR, "moves.txt")
     current_move = None
-    with open(filepath, "r", encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[") and line.endswith("]"):
-                current_move = line[1:-1]
-                _moves_data[current_move] = {}
-            elif current_move and "=" in line:
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip()
-                if key == "Name":
-                    _moves_data[current_move]["name"] = val
-                elif key == "Type":
-                    _moves_data[current_move]["type"] = val
-                elif key == "Category":
-                    _moves_data[current_move]["category"] = val
-                elif key == "Power":
-                    _moves_data[current_move]["power"] = val
-                elif key == "Accuracy":
-                    _moves_data[current_move]["accuracy"] = val
-                elif key == "TotalPP":
-                    _moves_data[current_move]["pp"] = val
-                elif key == "Description":
-                    _moves_data[current_move]["description"] = val
-    log.info(f"Loaded {len(_moves_data)} moves")
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current_move = line[1:-1]
+                    _moves_data[current_move] = {}
+                elif current_move and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key == "Name":
+                        _moves_data[current_move]["name"] = val
+                    elif key == "Type":
+                        _moves_data[current_move]["type"] = val
+                    elif key == "Category":
+                        _moves_data[current_move]["category"] = val
+                    elif key == "Power":
+                        _moves_data[current_move]["power"] = val
+                    elif key == "Accuracy":
+                        _moves_data[current_move]["accuracy"] = val
+                    elif key == "TotalPP":
+                        _moves_data[current_move]["pp"] = val
+                    elif key == "Description":
+                        _moves_data[current_move]["description"] = val
+        log.info(f"Loaded {len(_moves_data)} moves")
+    except Exception as e:
+        log.error(f"Failed to load moves.txt: {e}")
 
 
 def _parse_abilities():
     global _abilities_data
     filepath = os.path.join(DATA_DIR, "abilities.txt")
     current_ability = None
-    with open(filepath, "r", encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[") and line.endswith("]"):
-                current_ability = line[1:-1]
-                _abilities_data[current_ability] = {}
-            elif current_ability and "=" in line:
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip()
-                if key == "Name":
-                    _abilities_data[current_ability]["name"] = val
-                elif key == "Description":
-                    _abilities_data[current_ability]["description"] = val
-    log.info(f"Loaded {len(_abilities_data)} abilities")
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current_ability = line[1:-1]
+                    _abilities_data[current_ability] = {}
+                elif current_ability and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key == "Name":
+                        _abilities_data[current_ability]["name"] = val
+                    elif key == "Description":
+                        _abilities_data[current_ability]["description"] = val
+        log.info(f"Loaded {len(_abilities_data)} abilities")
+    except Exception as e:
+        log.error(f"Failed to load abilities.txt: {e}")
 
 
 def _parse_items():
     global _items_data
     filepath = os.path.join(DATA_DIR, "items.txt")
     current_item = None
-    with open(filepath, "r", encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("[") and line.endswith("]"):
-                current_item = line[1:-1]
-                _items_data[current_item] = {}
-            elif current_item and "=" in line:
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip()
-                if key == "Name":
-                    _items_data[current_item]["name"] = val
-                elif key == "Description":
-                    _items_data[current_item]["description"] = val
-                elif key == "Price":
-                    _items_data[current_item]["price"] = val
-    log.info(f"Loaded {len(_items_data)} items")
+    try:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current_item = line[1:-1]
+                    _items_data[current_item] = {}
+                elif current_item and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key == "Name":
+                        _items_data[current_item]["name"] = val
+                    elif key == "Description":
+                        _items_data[current_item]["description"] = val
+                    elif key == "Price":
+                        _items_data[current_item]["price"] = val
+        log.info(f"Loaded {len(_items_data)} items")
+    except Exception as e:
+        log.error(f"Failed to load items.txt: {e}")
 
 
 def load_all():
     global _loaded
     if _loaded:
-        return
+        return True
     _parse_types()
     _parse_pokemon()
     _parse_moves()
     _parse_abilities()
     _parse_items()
+    total = len(_types_data) + len(_pokemon_data) + len(_moves_data) + len(_abilities_data)
+    if total == 0:
+        log.error("CRITICAL: No data loaded from any Essentials file!")
+        return False
     _loaded = True
-    log.info("All Essentials data loaded")
+    log.info(f"All Essentials data loaded: {len(_types_data)} types, {len(_pokemon_data)} pokemon, {len(_moves_data)} moves, {len(_abilities_data)} abilities, {len(_items_data)} items")
+    return True
 
 
 def _generate_type_weakness_question():
-    if not _types_data:
-        return None
     valid_types = [t for t in _types_data if _types_data[t].get("weaknesses") and t != "QMARKS"]
     if not valid_types:
         return None
     target_type = random.choice(valid_types)
     weaknesses = _types_data[target_type]["weaknesses"]
-    correct = weaknesses[0]
+    correct = random.choice(weaknesses)
     question = f"¿Qué tipo es débil contra el tipo {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
-    wrong_options = random.sample([t for t in all_types if t not in weaknesses], min(2, len(all_types)))
+    wrong_pool = [t for t in all_types if t not in weaknesses]
+    if len(wrong_pool) < 2:
+        return None
+    wrong_options = random.sample(wrong_pool, 2)
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
 
 
 def _generate_type_resistance_question():
-    if not _types_data:
-        return None
     valid_types = [t for t in _types_data if _types_data[t].get("resistances") and t != "QMARKS"]
     if not valid_types:
         return None
     target_type = random.choice(valid_types)
     resistances = _types_data[target_type]["resistances"]
-    correct = resistances[0]
+    correct = random.choice(resistances)
     question = f"¿Qué tipo resiste al tipo {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
-    wrong_options = random.sample([t for t in all_types if t not in resistances], min(2, len(all_types)))
+    wrong_pool = [t for t in all_types if t not in resistances]
+    if len(wrong_pool) < 2:
+        return None
+    wrong_options = random.sample(wrong_pool, 2)
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
 
 
 def _generate_type_immunity_question():
-    if not _types_data:
-        return None
     valid_types = [t for t in _types_data if _types_data[t].get("immunities") and t != "QMARKS"]
     if not valid_types:
         return None
     target_type = random.choice(valid_types)
     immunities = _types_data[target_type]["immunities"]
-    correct = immunities[0]
+    correct = random.choice(immunities)
     question = f"¿Qué tipo es inmune al tipo {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
-    wrong_options = random.sample([t for t in all_types if t not in immunities], min(2, len(all_types)))
+    wrong_pool = [t for t in all_types if t not in immunities]
+    if len(wrong_pool) < 2:
+        return None
+    wrong_options = random.sample(wrong_pool, 2)
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
 
 
 def _generate_pokemon_type_question():
-    if not _pokemon_data:
-        return None
     pokemon_id = random.choice(list(_pokemon_data.keys()))
     pokemon = _pokemon_data[pokemon_id]
     if "types" not in pokemon:
@@ -253,15 +284,15 @@ def _generate_pokemon_type_question():
     question = f"¿De qué tipo es el Pokémon {pokemon_id}?"
     all_types = list(_types_data.keys())
     wrong_types = [t for t in all_types if t not in pokemon["types"] and t != "QMARKS"]
-    wrong_options = random.sample(wrong_types, min(2, len(wrong_types)))
+    if len(wrong_types) < 2:
+        return None
+    wrong_options = random.sample(wrong_types, 2)
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
 
 
 def _generate_pokemon_stat_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "stats" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -291,26 +322,25 @@ def _generate_pokemon_stat_question():
 
 
 def _generate_pokemon_weight_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "weight" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
     pokemon_id = random.choice(valid_pokemon)
     pokemon = _pokemon_data[pokemon_id]
-    weight = pokemon["weight"]
+    try:
+        weight_val = float(pokemon["weight"])
+    except (ValueError, TypeError):
+        return None
+    if weight_val < 1:
+        return None
     question = f"¿Cuánto pesa {pokemon_id} en kg?"
     wrong_weights = []
-    try:
-        weight_val = float(weight)
-    except ValueError:
-        return None
     pct = weight_val * 0.3
     offsets = [-pct * 1.5, -pct, -pct * 0.5, pct * 0.5, pct, pct * 1.5]
     random.shuffle(offsets)
     for offset in offsets:
         wrong = weight_val + offset
-        wrong = max(0.1, round(wrong, 1))
+        wrong = max(0.5, round(wrong, 1))
         wrong_str = f"{wrong:.1f}"
         if wrong_str != f"{weight_val:.1f}" and wrong_str not in wrong_weights:
             wrong_weights.append(wrong_str)
@@ -324,22 +354,19 @@ def _generate_pokemon_weight_question():
 
 
 def _generate_pokemon_height_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "height" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
     pokemon_id = random.choice(valid_pokemon)
     pokemon = _pokemon_data[pokemon_id]
-    height = pokemon["height"]
-    question = f"¿Cuánto mide {pokemon_id} en metros?"
-    wrong_heights = []
     try:
-        height_val = float(height)
-    except ValueError:
+        height_val = float(pokemon["height"])
+    except (ValueError, TypeError):
         return None
     if height_val < 0.3:
         return None
+    question = f"¿Cuánto mide {pokemon_id} en metros?"
+    wrong_heights = []
     pct = height_val * 0.3
     offsets = [-pct * 1.5, -pct, -pct * 0.5, pct * 0.5, pct, pct * 1.5]
     random.shuffle(offsets)
@@ -359,8 +386,6 @@ def _generate_pokemon_height_question():
 
 
 def _generate_pokemon_category_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "category" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -379,8 +404,6 @@ def _generate_pokemon_category_question():
 
 
 def _generate_pokemon_evolution_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "evolutions" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -416,8 +439,6 @@ def _generate_pokemon_evolution_question():
 
 
 def _generate_pokemon_ability_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "abilities" in _pokemon_data[p] and _pokemon_data[p]["abilities"]]
     if not valid_pokemon:
         return None
@@ -437,8 +458,6 @@ def _generate_pokemon_ability_question():
 
 
 def _generate_move_type_question():
-    if not _moves_data:
-        return None
     valid_moves = [m for m in _moves_data if "type" in _moves_data[m]]
     if not valid_moves:
         return None
@@ -446,17 +465,17 @@ def _generate_move_type_question():
     move = _moves_data[move_id]
     correct = move["type"]
     question = f"¿De qué tipo es el movimiento {move_id}?"
-    all_types = list(_types_data.keys())
-    wrong_types = [t for t in all_types if t != correct and t != "QMARKS"]
-    wrong_options = random.sample(wrong_types, min(2, len(wrong_types)))
+    all_types = [t for t in _types_data if t != "QMARKS"]
+    wrong_types = [t for t in all_types if t != correct]
+    if len(wrong_types) < 2:
+        return None
+    wrong_options = random.sample(wrong_types, 2)
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
 
 
 def _generate_move_category_question():
-    if not _moves_data:
-        return None
     valid_moves = [m for m in _moves_data if "category" in _moves_data[m]]
     if not valid_moves:
         return None
@@ -475,8 +494,6 @@ def _generate_move_category_question():
 
 
 def _generate_move_power_question():
-    if not _moves_data:
-        return None
     valid_moves = [m for m in _moves_data if "power" in _moves_data[m] and _moves_data[m]["power"] not in ("", "0")]
     if not valid_moves:
         return None
@@ -505,8 +522,6 @@ def _generate_move_power_question():
 
 
 def _generate_move_accuracy_question():
-    if not _moves_data:
-        return None
     valid_moves = [m for m in _moves_data if "accuracy" in _moves_data[m] and _moves_data[m]["accuracy"] not in ("", "0")]
     if not valid_moves:
         return None
@@ -535,8 +550,6 @@ def _generate_move_accuracy_question():
 
 
 def _generate_ability_description_question():
-    if not _abilities_data:
-        return None
     valid_abilities = [a for a in _abilities_data if "description" in _abilities_data[a]]
     if not valid_abilities:
         return None
@@ -555,8 +568,6 @@ def _generate_ability_description_question():
 
 
 def _generate_pokemon_moves_at_level():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "moves" in _pokemon_data[p] and _pokemon_data[p]["moves"]]
     if not valid_pokemon:
         return None
@@ -565,8 +576,7 @@ def _generate_pokemon_moves_at_level():
     moves = pokemon["moves"]
     if len(moves) < 4:
         return None
-    random.shuffle(moves)
-    move = moves[0]
+    move = random.choice(moves)
     correct = str(move["level"])
     question = f"¿En qué nivel {pokemon_id} aprende {move['name']}?"
     wrong_levels = []
@@ -584,8 +594,6 @@ def _generate_pokemon_moves_at_level():
 
 
 def _generate_pokemon_color_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "color" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -604,8 +612,6 @@ def _generate_pokemon_color_question():
 
 
 def _generate_pokemon_shape_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "shape" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -624,8 +630,6 @@ def _generate_pokemon_shape_question():
 
 
 def _generate_pokemon_generation_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "generation" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -643,8 +647,6 @@ def _generate_pokemon_generation_question():
 
 
 def _generate_pokemon_catch_rate_question():
-    if not _pokemon_data:
-        return None
     valid_pokemon = [p for p in _pokemon_data if "catch_rate" in _pokemon_data[p]]
     if not valid_pokemon:
         return None
@@ -697,31 +699,30 @@ GENERATORS = [
 
 
 def generate_essentials_trivia(used_questions: set = None) -> dict:
-    load_all()
+    ok = load_all()
+    if not ok:
+        log.error("Essentials data not loaded, cannot generate trivia")
+        return None
     if used_questions is None:
         used_questions = set()
-    generators = GENERATORS.copy()
+    generators = GENERATORS[:]
     random.shuffle(generators)
     for gen_func in generators:
-        for _ in range(20):
+        for _ in range(30):
             try:
                 question = gen_func()
                 if question and question["question"] not in used_questions:
-                    log.info(f"Generated essentials trivia: {question['question']}")
+                    log.info(f"Generated trivia: {question['question']}")
                     return question
             except Exception as e:
-                log.error(f"Error generating question: {e}")
+                log.error(f"Error in {gen_func.__name__}: {e}")
                 continue
+    log.warning(f"All {len(used_questions)} used questions exhausted, generating any question")
     for gen_func in generators:
         try:
             question = gen_func()
             if question:
-                log.info(f"Generated essentials trivia (fallback): {question['question']}")
                 return question
-        except Exception as e:
+        except Exception:
             continue
-    return {
-        "question": "¿De qué tipo es BULBASAUR?",
-        "correct": "GRASS/POISON",
-        "options": ["GRASS/POISON", "FIRE", "WATER"],
-    }
+    return None

@@ -459,3 +459,33 @@ def is_youtube_verified(user_id: str) -> bool:
 def mark_youtube_verified(user_id: str):
     ref = _users_ref().child(user_id)
     ref.update({"youtube_verified": True})
+
+
+def get_used_weekly_questions() -> set:
+    ref = db.reference("used_weekly_questions")
+    data = ref.get() or {}
+    return {v.get("question", "") for v in data.values() if isinstance(v, dict)}
+
+
+def mark_weekly_question_used(question: str):
+    import hashlib
+    ref = db.reference("used_weekly_questions")
+    key = hashlib.md5(question.encode("utf-8")).hexdigest()
+    ref.child(key).set({
+        "question": question,
+        "used_at": datetime.now().isoformat(),
+    })
+
+
+def cleanup_old_used_questions():
+    cutoff = (datetime.now() - timedelta(days=90)).isoformat()
+    ref = db.reference("used_questions")
+    data = ref.get() or {}
+    for key, val in data.items():
+        if isinstance(val, dict) and val.get("used_at", "") < cutoff:
+            ref.child(key).delete()
+    ref2 = db.reference("used_weekly_questions")
+    data2 = ref2.get() or {}
+    for key, val in data2.items():
+        if isinstance(val, dict) and val.get("used_at", "") < cutoff:
+            ref2.child(key).delete()
