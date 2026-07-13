@@ -393,17 +393,22 @@ TRUE_FALSE_QUESTIONS = [
 class Trivia(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._weekly_posted_key = None
         self.weekly_quiz_task.start()
 
     def cog_unload(self):
         self.weekly_quiz_task.cancel()
 
-    @tasks.loop(hours=24)
+    @tasks.loop(minutes=1)
     async def weekly_quiz_task(self):
         now = datetime.now(TZ_SPAIN)
         if now.weekday() != 0:
             return
         if now.hour != 10 or now.minute != 0:
+            return
+
+        week_key = now.strftime("%Y-W%W")
+        if self._weekly_posted_key == week_key:
             return
 
         guild = self.bot.guilds[0] if self.bot.guilds else None
@@ -418,23 +423,35 @@ class Trivia(commands.Cog):
         existing = db.get_active_weekly_quiz()
         if existing:
             old_key = existing["id"]
-            new_week = now.strftime("%Y-W%W")
-            if old_key != new_week:
+            if old_key != week_key:
                 db.close_weekly_quiz(old_key)
             else:
+                self._weekly_posted_key = week_key
                 return
 
-        questions = random.sample(TRUE_FALSE_QUESTIONS, 10)
-        week_key = now.strftime("%Y-W%W")
+        used_questions = db.get_used_weekly_questions()
+        available = [q for q in TRUE_FALSE_QUESTIONS if q["question"] not in used_questions]
+        if len(available) < 10:
+            available = TRUE_FALSE_QUESTIONS[:]
+
+        questions = random.sample(available, 10)
         db.save_weekly_quiz(questions, week_key)
+        for q in questions:
+            db.mark_weekly_question_used(q["question"])
 
         embed = discord.Embed(
             title="🎯 Quiz Semanal de Pokémon",
             description=(
                 "¡10 preguntas de Verdadero o Falso!\n\n"
-                "10/10 = **50 puntos** | 7-9 = **20 puntos** | 5-6 = **10 puntos** | 1-4 = **5 puntos**\n\n"
-                "Haz clic en el botón de abajo para empezar. Las preguntas se envían por MD.\n"
-                "Disponible hasta el próximo lunes a las 10:00."
+                "**Puntuación:**\n"
+                "10/10 = **50 puntos** 🏆\n"
+                "7-9 = **20 puntos** 🥈\n"
+                "5-6 = **10 puntos** 🥉\n"
+                "1-4 = **5 puntos** 🎯\n\n"
+                "Haz clic en el botón de abajo para empezar.\n"
+                "Las preguntas se envían por MD.\n"
+                "Disponible hasta el próximo lunes a las 10:00.\n"
+                "Cada persona puede responder una vez."
             ),
             color=discord.Color.gold(),
         )
@@ -442,6 +459,8 @@ class Trivia(commands.Cog):
 
         view = WeeklyQuizStartView()
         await channel.send(embed=embed, view=view)
+        self._weekly_posted_key = week_key
+        logging.info(f"Weekly quiz posted for {week_key}")
 
     @weekly_quiz_task.before_loop
     async def before_weekly_quiz(self):

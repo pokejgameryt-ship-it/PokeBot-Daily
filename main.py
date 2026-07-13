@@ -288,6 +288,10 @@ async def before_streak_reminder():
 
 @tasks.loop(hours=1)
 async def reset_stale_streaks_task():
+    try:
+        db.cleanup_old_used_questions()
+    except Exception as e:
+        logging.warning(f"Error cleaning up old questions: {e}")
     broken_users = db.get_users_with_broken_streaks()
     guild = bot.guilds[0] if bot.guilds else None
     if not guild:
