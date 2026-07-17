@@ -228,7 +228,7 @@ def _generate_type_weakness_question():
     target_type = random.choice(valid_types)
     weaknesses = _types_data[target_type]["weaknesses"]
     correct = random.choice(weaknesses)
-    question = f"¿Qué tipo es super efectivo contra {target_type}?"
+    question = f"¿Contra qué tipo es débil {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
     wrong_pool = [t for t in all_types if t not in weaknesses]
     if len(wrong_pool) < 2:
