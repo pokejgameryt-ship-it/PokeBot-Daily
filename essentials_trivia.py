@@ -228,7 +228,7 @@ def _generate_type_weakness_question():
     target_type = random.choice(valid_types)
     weaknesses = _types_data[target_type]["weaknesses"]
     correct = random.choice(weaknesses)
-    question = f"¿Qué tipo es débil contra el tipo {target_type}?"
+    question = f"¿Qué tipo es super efectivo contra {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
     wrong_pool = [t for t in all_types if t not in weaknesses]
     if len(wrong_pool) < 2:
@@ -246,7 +246,7 @@ def _generate_type_resistance_question():
     target_type = random.choice(valid_types)
     resistances = _types_data[target_type]["resistances"]
     correct = random.choice(resistances)
-    question = f"¿Qué tipo resiste al tipo {target_type}?"
+    question = f"¿Qué tipo puede resistir {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
     wrong_pool = [t for t in all_types if t not in resistances]
     if len(wrong_pool) < 2:
@@ -264,7 +264,7 @@ def _generate_type_immunity_question():
     target_type = random.choice(valid_types)
     immunities = _types_data[target_type]["immunities"]
     correct = random.choice(immunities)
-    question = f"¿Qué tipo es inmune al tipo {target_type}?"
+    question = f"¿A qué tipo es inmune {target_type}?"
     all_types = [t for t in _types_data if t != "QMARKS" and t != target_type]
     wrong_pool = [t for t in all_types if t not in immunities]
     if len(wrong_pool) < 2:
