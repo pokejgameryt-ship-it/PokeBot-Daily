@@ -6,6 +6,7 @@ iniciar.bat
 
 # Entorno virtual
 venv/
+.venv/
 __pycache__/
 *.pyc
 
