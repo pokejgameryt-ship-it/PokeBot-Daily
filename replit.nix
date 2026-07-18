@@ -2,8 +2,8 @@
   deps = [
     pkgs.python311
     pkgs.python311Packages.pip
-    pkgs.tesseract
-    pkgs.tesseract-data-eng
-    pkgs.tesseract-data-spa
   ];
+  shell = ''
+    apt-get update && apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa
+  '';
 }
