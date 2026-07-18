@@ -728,5 +728,13 @@ async def ayuda_pkquest_command(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
+async def setup_hook():
+    from web_server import start_web_server
+    await start_web_server()
+    print("[OK] Web server initialized")
+
+bot.setup_hook = setup_hook
+
+
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)

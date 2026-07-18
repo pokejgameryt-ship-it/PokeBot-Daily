@@ -1,0 +1,11 @@
+run = "python main.py"
+entrypoint = "main.py"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PYTHON_VERSION = "3.11"
+
+[deployment]
+run = ["sh", "-c", "python main.py"]
