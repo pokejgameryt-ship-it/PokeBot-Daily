@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.token
+firebase-service-account.json
+iniciar.bat
+*.log
+*.db
+*.sqlite
+.vscode
+.idea
+.DS_Store
+Thumbs.db
