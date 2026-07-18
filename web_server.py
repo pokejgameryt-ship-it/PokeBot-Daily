@@ -2,6 +2,7 @@ import os
 import aiohttp
 from aiohttp import web
 import asyncio
+import threading
 
 pending_codes = {}
 
@@ -38,6 +39,10 @@ async def handle_callback(request):
     return web.Response(text=html, content_type="text/html")
 
 
+async def handle_health(request):
+    return web.Response(text="OK", content_type="text/plain")
+
+
 def get_code(user_id: str):
     return pending_codes.pop(user_id, None)
 
@@ -45,6 +50,8 @@ def get_code(user_id: str):
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/callback", handle_callback)
+    app.router.add_get("/", handle_health)
+    app.router.add_get("/health", handle_health)
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.getenv("PORT", 8080))
