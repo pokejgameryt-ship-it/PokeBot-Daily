@@ -43,6 +43,21 @@ def _daily_ref():
     return db.reference("daily_trivia")
 
 
+def _startup_ref():
+    return db.reference("startup_tasks")
+
+
+def save_startup_task(task_name: str, task_date: str):
+    ref = _startup_ref().child(task_date).child(task_name)
+    ref.set({"done": True, "at": datetime.now().isoformat()})
+
+
+def was_startup_task_done(task_name: str, task_date: str) -> bool:
+    ref = _startup_ref().child(task_date).child(task_name)
+    data = ref.get()
+    return data is not None and data.get("done", False)
+
+
 def _retos_ref():
     return db.reference("retos")
 
