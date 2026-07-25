@@ -555,13 +555,13 @@ def _generate_ability_description_question():
         return None
     ability_id = random.choice(valid_abilities)
     ability = _abilities_data[ability_id]
-    correct = ability["name"]
-    question = f"¿Qué hace la habilidad {ability_id}?"
-    all_abilities = [a for a in valid_abilities if a != ability_id]
+    correct = ability["description"]
+    question = f"¿Qué efecto tiene la habilidad {ability_id}?"
+    all_abilities = [a for a in valid_abilities if a != ability_id and _abilities_data[a].get("description")]
     if len(all_abilities) < 2:
         return None
     wrong_ids = random.sample(all_abilities, 2)
-    wrong_options = [_abilities_data[a]["name"] for a in wrong_ids]
+    wrong_options = [_abilities_data[a]["description"] for a in wrong_ids]
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}
