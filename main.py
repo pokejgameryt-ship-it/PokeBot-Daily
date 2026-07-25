@@ -5,7 +5,8 @@ import asyncio
 import logging
 import psutil
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+if sys.stdout is not None:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
 
@@ -78,47 +79,166 @@ async def on_ready():
         )
     )
 
-    # Check if daily trivia was missed while PC was off
+    # === CATCH-UP: Ejecutar tareas perdidas mientras el PC estaba apagado ===
     now = datetime.now(TZ_SPAIN)
-    if now.hour >= TRIVIA_HOUR and db.get_daily_trivia() is None:
-        try:
-            guild = bot.guilds[0] if bot.guilds else None
-            if guild:
-                channel = guild.get_channel(TRIVIA_CHANNEL_ID)
-                if channel:
-                    import random
-                    from trivia import TriviaView, DIFFICULTY_CONFIG
-                    from pokeapi_trivia import generate_daily_trivia
-                    difficulty = random.choice(["easy", "medium", "hard"])
-                    used_questions = db.get_used_questions()
-                    trivia = generate_daily_trivia(used_questions)
-                    if trivia:
-                        options = trivia["options"][:]
-                        random.shuffle(options)
-                        correct = trivia["correct"]
-                        db.save_trivia_question(trivia["question"], correct, options)
-                        db.mark_question_used(trivia["question"])
-                        daily = db.get_daily_trivia()
-                        if daily:
-                            diff_config = DIFFICULTY_CONFIG[difficulty]
-                            greeting = "Buenos días entrenadores"
+    today = now.date().isoformat()
+    guild = bot.guilds[0] if bot.guilds else None
+
+    if guild:
+        # 1. Daily trivia perdida
+        if now.hour >= TRIVIA_HOUR and db.get_daily_trivia() is None:
+            if not db.was_startup_task_done("daily_trivia", today):
+                try:
+                    channel = guild.get_channel(TRIVIA_CHANNEL_ID)
+                    if channel:
+                        import random
+                        from trivia import TriviaView, DIFFICULTY_CONFIG
+                        from pokeapi_trivia import generate_daily_trivia
+                        difficulty = random.choice(["easy", "medium", "hard"])
+                        used_questions = db.get_used_questions()
+                        trivia = generate_daily_trivia(used_questions)
+                        if trivia:
+                            options = trivia["options"][:]
+                            random.shuffle(options)
+                            correct = trivia["correct"]
+                            db.save_trivia_question(trivia["question"], correct, options)
+                            db.mark_question_used(trivia["question"])
+                            daily = db.get_daily_trivia()
+                            if daily:
+                                diff_config = DIFFICULTY_CONFIG[difficulty]
+                                embed = discord.Embed(
+                                    title=f"🎯 Buenos días entrenadores {diff_config['emoji']}",
+                                    description=f"**{trivia['question']}**",
+                                    color=diff_config["color"],
+                                )
+                                embed.add_field(name="Dificultad", value=diff_config["label"])
+                                embed.add_field(name="Puntos", value=str(diff_config["points"]))
+                                embed.add_field(name="A", value=options[0], inline=False)
+                                embed.add_field(name="B", value=options[1], inline=False)
+                                embed.add_field(name="C", value=options[2], inline=False)
+                                embed.set_footer(text="Usa los botones para responder. Disponible hasta mañana a las 10:00.")
+                                view = TriviaView(correct, daily["id"], options, difficulty)
+                                msg = await channel.send(embed=embed, view=view)
+                                view.message = msg
+                                db.save_startup_task("daily_trivia", today)
+                                logging.info("CATCHUP: Posted missed daily trivia")
+                except Exception as e:
+                    logging.error(f"CATCHUP error daily trivia: {e}")
+
+        # 2. Weekly quiz perdida (lunes)
+        if now.weekday() == 0 and now.hour >= 10:
+            if not db.was_startup_task_done("weekly_quiz", today):
+                try:
+                    from trivia import WeeklyQuizStartView
+                    week_key = now.strftime("%Y-W%W")
+                    existing = db.get_active_weekly_quiz()
+                    if not existing or existing["id"] != week_key:
+                        from config import RETO_CHANNEL_ID
+                        channel = guild.get_channel(RETO_CHANNEL_ID)
+                        if channel:
+                            used_questions = db.get_used_weekly_questions()
+                            from trivia import TRUE_FALSE_QUESTIONS
+                            available = [q for q in TRUE_FALSE_QUESTIONS if q["question"] not in used_questions]
+                            if len(available) < 10:
+                                available = TRUE_FALSE_QUESTIONS[:]
+                            questions = random.sample(available, 10)
+                            db.save_weekly_quiz(questions, week_key)
+                            for q in questions:
+                                db.mark_weekly_question_used(q["question"])
                             embed = discord.Embed(
-                                title=f"🎯 {greeting} {diff_config['emoji']}",
-                                description=f"**{trivia['question']}**",
-                                color=diff_config["color"],
+                                title="🎯 Quiz Semanal de Pokémon",
+                                description=(
+                                    "¡10 preguntas de Verdadero o Falso!\n\n"
+                                    "**Puntuación:**\n"
+                                    "10/10 = **50 puntos** 🏆\n"
+                                    "7-9 = **20 puntos** 🥈\n"
+                                    "5-6 = **10 puntos** 🥉\n"
+                                    "1-4 = **5 puntos** 🎯\n\n"
+                                    "Haz clic en el botón de abajo para empezar.\n"
+                                    "Las preguntas se envían por MD.\n"
+                                    "Disponible hasta el próximo lunes a las 10:00.\n"
+                                    "Cada persona puede responder una vez."
+                                ),
+                                color=discord.Color.gold(),
                             )
-                            embed.add_field(name="Dificultad", value=diff_config["label"])
-                            embed.add_field(name="Puntos", value=str(diff_config["points"]))
-                            embed.add_field(name="A", value=options[0], inline=False)
-                            embed.add_field(name="B", value=options[1], inline=False)
-                            embed.add_field(name="C", value=options[2], inline=False)
-                            embed.set_footer(text="Usa los botones para responder. Disponible hasta mañana a las 10:00.")
-                            view = TriviaView(correct, daily["id"], options, difficulty)
-                            msg = await channel.send(embed=embed, view=view)
-                            view.message = msg
-                            logging.info("Posted missed daily trivia on startup")
-        except Exception as e:
-            logging.error(f"Error posting missed trivia on startup: {e}")
+                            embed.set_footer(text="Cada persona puede responder una vez")
+                            view = WeeklyQuizStartView()
+                            await channel.send(embed=embed, view=view)
+                            db.save_startup_task("weekly_quiz", today)
+                            logging.info(f"CATCHUP: Posted missed weekly quiz for {week_key}")
+                except Exception as e:
+                    logging.error(f"CATCHUP error weekly quiz: {e}")
+
+        # 3. Check followers inmediato
+        if not db.was_startup_task_done("check_followers", today):
+            try:
+                from verify import check_twitch_follow
+                role = guild.get_role(MIEMBRO_ROLE_ID)
+                if role:
+                    verified_users = db.get_all_verified_users()
+                    removed = 0
+                    for user_data in verified_users:
+                        if user_data.get("platform") != "twitch":
+                            continue
+                        username = user_data.get("username")
+                        if not username or username == "auto-detected":
+                            continue
+                        member = guild.get_member(user_data["user_id"])
+                        if not member:
+                            continue
+                        if not check_twitch_follow(username):
+                            if role in member.roles:
+                                await member.remove_roles(role)
+                                db.set_verified(member.id, False, None, None)
+                                removed += 1
+                    if removed > 0:
+                        logging.info(f"CATCHUP: Removed verification from {removed} unfollowers")
+                    db.save_startup_task("check_followers", today)
+            except Exception as e:
+                logging.error(f"CATCHUP error check_followers: {e}")
+
+        # 4. Reset streaks rotas
+        if not db.was_startup_task_done("stale_streaks", today):
+            try:
+                broken_users = db.get_users_with_broken_streaks()
+                role = guild.get_role(STREAK_ROLE_ID)
+                for user_data in broken_users:
+                    db.mark_streak_broken_notified(user_data["user_id"])
+                    if role:
+                        member = guild.get_member(user_data["user_id"])
+                        if member and role in member.roles:
+                            await member.remove_roles(role)
+                    user = await bot.fetch_user(user_data["user_id"])
+                    if user:
+                        await user.send(
+                            f"😢 ¡Hola {user_data['username']}!\n\n"
+                            f"Tu racha de **{user_data['old_streak']} días** se ha roto. "
+                            f"No respondiste la trivia en los últimos 2 días.\n\n"
+                            f"¡No te preocupes! Empieza de nuevo hoy. Ve a <#{ALLOWED_CHANNEL_ID}> y escribe **!trivia** para recuperarla. 💪"
+                        )
+                db.save_startup_task("stale_streaks", today)
+            except Exception as e:
+                logging.error(f"CATCHUP error stale_streaks: {e}")
+
+        # 5. Recordatorios de racha pendientes
+        if not db.was_startup_task_done("streak_reminders", today):
+            try:
+                users = db.get_users_needing_reminder()
+                for user_data in users:
+                    user = await bot.fetch_user(user_data["user_id"])
+                    if user:
+                        db.mark_reminder_sent(user_data["user_id"])
+                        await user.send(
+                            f"¡Hola {user_data['username']}! 🔥\n\n"
+                            f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
+                            f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
+                            f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
+                        )
+                db.save_startup_task("streak_reminders", today)
+            except Exception as e:
+                logging.error(f"CATCHUP error streak_reminders: {e}")
+
+    logging.info("CATCHUP: Startup tasks completed")
 
 
 @bot.event
