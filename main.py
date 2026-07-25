@@ -1,10 +1,20 @@
 import sys
 import io
+import os
 import asyncio
 import logging
+import psutil
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
+
+proc = psutil.Process()
+try:
+    proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+except AttributeError:
+    proc.nice(1)
+logging.info(f"Process priority set to BELOW_NORMAL. PID: {proc.pid}")
 
 import discord
 from discord.ext import commands, tasks
@@ -67,6 +77,48 @@ async def on_ready():
             name="Pokémon Trivia | !trivia",
         )
     )
+
+    # Check if daily trivia was missed while PC was off
+    now = datetime.now(TZ_SPAIN)
+    if now.hour >= TRIVIA_HOUR and db.get_daily_trivia() is None:
+        try:
+            guild = bot.guilds[0] if bot.guilds else None
+            if guild:
+                channel = guild.get_channel(TRIVIA_CHANNEL_ID)
+                if channel:
+                    import random
+                    from trivia import TriviaView, DIFFICULTY_CONFIG
+                    from pokeapi_trivia import generate_daily_trivia
+                    difficulty = random.choice(["easy", "medium", "hard"])
+                    used_questions = db.get_used_questions()
+                    trivia = generate_daily_trivia(used_questions)
+                    if trivia:
+                        options = trivia["options"][:]
+                        random.shuffle(options)
+                        correct = trivia["correct"]
+                        db.save_trivia_question(trivia["question"], correct, options)
+                        db.mark_question_used(trivia["question"])
+                        daily = db.get_daily_trivia()
+                        if daily:
+                            diff_config = DIFFICULTY_CONFIG[difficulty]
+                            greeting = "Buenos días entrenadores"
+                            embed = discord.Embed(
+                                title=f"🎯 {greeting} {diff_config['emoji']}",
+                                description=f"**{trivia['question']}**",
+                                color=diff_config["color"],
+                            )
+                            embed.add_field(name="Dificultad", value=diff_config["label"])
+                            embed.add_field(name="Puntos", value=str(diff_config["points"]))
+                            embed.add_field(name="A", value=options[0], inline=False)
+                            embed.add_field(name="B", value=options[1], inline=False)
+                            embed.add_field(name="C", value=options[2], inline=False)
+                            embed.set_footer(text="Usa los botones para responder. Disponible hasta mañana a las 10:00.")
+                            view = TriviaView(correct, daily["id"], options, difficulty)
+                            msg = await channel.send(embed=embed, view=view)
+                            view.message = msg
+                            logging.info("Posted missed daily trivia on startup")
+        except Exception as e:
+            logging.error(f"Error posting missed trivia on startup: {e}")
 
 
 @bot.event
