@@ -40,7 +40,7 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 ALLOWED_CHANNEL_ID = 1516733719191228416
-COMMANDS_ALLOWED_CHANNELS = ["enviar-verificacion", "verificar-todos"]
+COMMANDS_ALLOWED_CHANNELS = ["enviar-verificacion", "verificar-todos", "pkquest"]
 
 _active_views = []
 
@@ -434,8 +434,11 @@ async def before_daily_trivia():
     await bot.wait_until_ready()
 
 
-@tasks.loop(minutes=30)
+@tasks.loop(minutes=1)
 async def streak_reminder_task():
+    now = datetime.now(TZ_SPAIN)
+    if now.hour != TRIVIA_HOUR or now.minute != 0:
+        return
     users = db.get_users_needing_reminder()
     for user_data in users:
         try:
