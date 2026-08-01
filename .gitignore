@@ -1,8 +1,10 @@
 # Tokens y secretos
 .token
 *.token
+.firebase-service-account.json
 firebase-service-account.json
 iniciar.bat
+.env
 
 # Entorno virtual
 venv/
