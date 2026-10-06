@@ -1082,15 +1082,23 @@ async def lease_renew_task():
         # Otra instancia tomó el control: desconectar para no duplicar
         logger.error("Lease de líder perdido (%s); desconectando", leader.INSTANCE_ID)
         await bot.close()
-    else:
-        # visible en log cada 5 min para poder verificar la salud del lease
-        lease_renew_task._n_renew = getattr(lease_renew_task, "_n_renew", 0) + 1
-        if lease_renew_task._n_renew % 10 == 0:
-            logger.info(
-                "Lease renovado OK (%s), %d renovaciones",
-                leader.INSTANCE_ID,
-                lease_renew_task._n_renew,
-            )
+        return
+    if await asyncio.to_thread(leader.should_yield):
+        # La PC principal (prioridad mayor) está en espera: ceder el mando
+        logger.info(
+            "Cediendo el liderazgo a instancia prioritaria (%s)", leader.INSTANCE_ID
+        )
+        await asyncio.to_thread(leader.release_lease)
+        await bot.close()
+        return
+    # visible en log cada 5 min para poder verificar la salud del lease
+    lease_renew_task._n_renew = getattr(lease_renew_task, "_n_renew", 0) + 1
+    if lease_renew_task._n_renew % 10 == 0:
+        logger.info(
+            "Lease renovado OK (%s), %d renovaciones",
+            leader.INSTANCE_ID,
+            lease_renew_task._n_renew,
+        )
 
 
 @lease_renew_task.before_loop
@@ -1140,6 +1148,8 @@ async def _run_with_lease():
     while True:
         acquired = await asyncio.to_thread(leader.acquire_lease)
         if not acquired:
+            # Anunciar que estamos en espera: un líder suplente nos cederá el mando
+            await asyncio.to_thread(leader.announce_standby)
             logger.info(
                 "Otra instancia es líder; reintentando en %ss (%s)",
                 leader.WAIT_INTERVAL_S,
@@ -1148,6 +1158,7 @@ async def _run_with_lease():
             await asyncio.sleep(leader.WAIT_INTERVAL_S)
             continue
 
+        await asyncio.to_thread(leader.clear_standby)
         logger.info("Conectando como líder (%s)", leader.INSTANCE_ID)
         try:
             await bot.start(DISCORD_TOKEN)

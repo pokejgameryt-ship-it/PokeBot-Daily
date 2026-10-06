@@ -76,3 +76,30 @@ def test_failover_sequence():
     b_attempt = leader.claim(a, now + leader.LEASE_TTL_MS + 1)
     assert b_attempt["id"] == leader.INSTANCE_ID
     assert b_attempt["expires_at"] == now + leader.LEASE_TTL_MS + 1 + leader.LEASE_TTL_MS
+
+
+def test_suplente_cede_a_principal():
+    """Host (prioridad 1) cede si la PC principal (0) está en espera."""
+    standbys = {"pc#123": 0}
+    assert leader.should_yield_for(standbys, my_priority=1, my_id="host#43")
+
+
+def test_principal_no_cede_a_suplente():
+    """PC (0) NO cede aunque un host suplente (1) esté en espera."""
+    standbys = {"host#43": 1}
+    assert not leader.should_yield_for(standbys, my_priority=0, my_id="pc#123")
+
+
+def test_prioridad_igual_no_cede():
+    standbys = {"otra#1": 0, "otra#2": 0}
+    assert not leader.should_yield_for(standbys, my_priority=0, my_id="yo#1")
+
+
+def test_standby_propio_ignorado():
+    standbys = {"yo#1": 0}
+    assert not leader.should_yield_for(standbys, my_priority=1, my_id="yo#1")
+
+
+def test_key_firebase_sin_caracteres_illegales():
+    assert leader._key("Jaume#123-x") == "Jaume_123-x"
+    assert leader._key("a964aa65-68a5") == "a964aa65-68a5"
