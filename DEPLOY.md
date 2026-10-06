@@ -77,29 +77,34 @@ En los logs verás:
 
 ## 8. Quaxly Host (FeatherPanel) — pasos exactos
 
-El panel arranca con `python /home/container/app.py` y el repo **ya incluye
-`app.py`**, así que no hay que cambiar el comando de arranque.
+El panel **no da consola hasta que el servidor está online**, así que el
+clonado va dentro del propio comando de arranque (no necesitas terminal).
 
-1. **Clona el código** en la consola del panel:
+### 8.1 Sube los 3 ficheros de secretos (la pestaña Files funciona offline)
 
-   ```bash
-   cd /home/container
-   git clone https://github.com/pokejgameryt-ship-it/PokeBot-Daily.git tmp
-   mv tmp/* tmp/.[!.]* . 2>/dev/null; rm -rf tmp
-   ls -la   # debe aparecer app.py, main.py, requirements.txt...
-   ```
+- `.env` → variables varias (Twitch/Google, etc.)
+- `.token` → token del bot (POKEBOT_TOKEN)
+- `firebase-service-account.json` → credenciales Firebase
 
-2. **Sube 3 ficheros** (nunca están en git; los `git pull` futuros no los tocan):
-   - `.env` → variables varias (Twitch/Google, etc.)
-   - `.token` → token del bot (POKEBOT_TOKEN)
-   - `firebase-service-account.json` → credenciales Firebase
+(Alternative: SFTP en `node10.quaxly.com:25258` con tu usuario/contraseña del panel.)
 
-3. **Variables del panel** (Startup → Variables):
-   - `REQUIREMENTS_FILE` = `requirements.txt` (si no, no instala las deps)
-   - `AUTO_UPDATE` = `1` (git pull en cada arranque = updates sin subir nada)
+### 8.2 Settings → Startup → Startup Command
 
-4. **Start.** Primer arranque: `pip install -r requirements.txt` corre solo.
-   Con la PC encendida verás `Otra instancia es líder; reintentando en 30s`
-   (correcto). Apaga la PC y en ≤90s verás `Conectando como líder (…)`.
-   Recuerde: Python del contenedor es 3.13 y Tesseract no existe (OCR
-   deshabilitado automáticamente, el resto funciona igual).
+Pega **esta línea entera** (reemplaza la actual):
+
+```bash
+export PYTHONPATH=/home/container/.local/lib/python3.13/site-packages${PYTHONPATH:+:$PYTHONPATH}; if [ ! -f /home/container/app.py ]; then rm -rf /home/container/.bootstrap; git clone https://github.com/pokejgameryt-ship-it/PokeBot-Daily.git /home/container/.bootstrap && cp -a /home/container/.bootstrap/. /home/container/ && rm -rf /home/container/.bootstrap; fi; if [ -d /home/container/.git ] && [ "${AUTO_UPDATE}" = "1" ]; then git -C /home/container pull --ff-only; fi; if [ ! -z "${PY_PACKAGES}" ]; then pip install -U --prefix /home/container/.local ${PY_PACKAGES}; fi; if [ -f /home/container/requirements.txt ]; then pip install -U --prefix /home/container/.local -r /home/container/requirements.txt; fi; /usr/local/bin/python /home/container/app.py
+```
+
+En variables del mismo apartado pon:
+- `AUTO_UPDATE` = `1` (git pull en cada arranque = updates sin subir nada)
+- `INSTANCE_ID` opcional (p. ej. `quaxly-1`) para los logs
+
+### 8.3 Start
+
+Primer arranque tarda (clone + `pip install`); después verás en consola
+`Otra instancia es líder; reintentando en 30s` (correcto con la PC encendida).
+Apaga la PC y en ≤90s aparece `Conectando como líder (...)`.
+
+Python del contenedor: 3.13 · Tesseract no existe (OCR se deshabilita solo;
+el resto funciona igual).
