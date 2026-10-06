@@ -19,6 +19,17 @@ import time
 
 logger = logging.getLogger("leader")
 
+# Cargar .env aquí mismo: leader.py puede importarse ANTES que config.py,
+# y LEADER_PRIORITY vive en el .env. (override=False: no pisa variables ya fijas.)
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(_dotenv_path):
+        _load_dotenv(_dotenv_path, override=False)
+except Exception:
+    pass
+
 LEASE_TTL_MS = 90_000          # el lease caduca a los 90s sin renovar
 RENEW_INTERVAL_S = 30          # cada cuánto se renueva
 WAIT_INTERVAL_S = 30           # esperar entre intentos si otro es líder

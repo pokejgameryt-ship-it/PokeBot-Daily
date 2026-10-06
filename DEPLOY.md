@@ -61,13 +61,24 @@ En los logs verás:
 | Verificación YouTube por screenshot (OCR) | ✅ Tesseract | ❌ sin Tesseract (se oculta/deshabilita con aviso) |
 | Backup de Firebase | ✅ tarea diaria 04:00 | ✅ (se hace desde la PC) |
 
-## 6. Failover — cómo probarlo
+## 6. Failover — roles y cómo probarlo
 
-1. Con la PC encendida: en el panel del host aparece `Otra instancia es líder`.
-2. Apaga la PC (o detén `PokeBot Daily`).
-3. En ≤90s el host loguea `Conectando como líder` y el bot sigue activo.
-4. Enciende la PC: espera a que caduque el lease del host (≤90s) y la PC
-   recupera el control; el host se desconecta solo (`Lease de líder perdido`).
+**Roles (prioridades):** el **host es SIEMPRE la prioridad** — prioridad 0,
+que es el default, así que **no hay que configurar nada en el host**. La PC
+es el respaldo: `LEADER_PRIORITY=1` en el `.env` de la PC.
+
+- Host líder (estado normal) → la PC espera: `Otra instancia es líder...`
+- Host cae/apagado → la PC toma el mando en ≤90s.
+- La PC es líder y el host (re)arranca → el host se anuncia en standby y la
+  PC **cede sola en ≤30s** (`Cediendo el liderazgo a instancia prioritaria`),
+  sin intervención manual.
+
+### Probarlo
+
+1. Con todo funcionando: la PC loguea `Otra instancia es líder; reintentando...`
+2. En el panel: **Stop** → en ≤90s la PC loguea `Conectando como líder (...)`.
+3. En el panel: **Start** → en ≤90s la PC cede y el host recupera el mando;
+   la PC vuelve a `Otra instancia es líder...`.
 
 ## 7. Mantenimiento
 
@@ -99,6 +110,8 @@ export PYTHONPATH=/home/container/.local/lib/python3.13/site-packages${PYTHONPAT
 En variables del mismo apartado pon:
 - `AUTO_UPDATE` = `1` (git pull en cada arranque = updates sin subir nada)
 - `INSTANCE_ID` opcional (p. ej. `quaxly-1`) para los logs
+- **NO** pongas `LEADER_PRIORITY`: en el host debe ser 0 (principal). La PC
+  es la respaldo con `LEADER_PRIORITY=1` en su `.env`.
 
 ### 8.3 Start
 
