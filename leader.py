@@ -50,6 +50,15 @@ def _leader_ref():
     return db.reference("leader")
 
 
+def _standby_ref():
+    # Nodo separado: claim()/release() sobrescriben TODO el nodo `leader`,
+    # así los anuncios de standby no se borran en cada renovación.
+    import database  # noqa: F401  (inicializa la app Firebase)
+    from firebase_admin import db
+
+    return db.reference("leader_standby")
+
+
 def _new_claim(now_ms: int) -> dict:
     return {
         "id": INSTANCE_ID,
@@ -109,7 +118,7 @@ def _key(iid: str) -> str:
 def _standbys_live(now_ms: int) -> dict:
     """Standbys vivos: {instance_id: priority} (ignora anuncios caducados)."""
     try:
-        data = _leader_ref().child("standby").get()
+        data = _standby_ref().get()
     except Exception as e:
         logger.debug("No se pudieron leer standbys: %s", e)
         return {}
@@ -133,7 +142,7 @@ def _standbys_live(now_ms: int) -> dict:
 def announce_standby() -> None:
     """Publica esta instancia como en espera (para que un líder suplente ceda)."""
     try:
-        _leader_ref().child("standby").child(_key(INSTANCE_ID)).set(
+        _standby_ref().child(_key(INSTANCE_ID)).set(
             {"id": INSTANCE_ID, "priority": PRIORITY, "ts": _now_ms()}
         )
     except Exception as e:
@@ -143,7 +152,7 @@ def announce_standby() -> None:
 def clear_standby() -> None:
     """Elimina el anuncio propio (al ganar el liderazgo o al morir limpio)."""
     try:
-        _leader_ref().child("standby").child(_key(INSTANCE_ID)).delete()
+        _standby_ref().child(_key(INSTANCE_ID)).delete()
     except Exception:
         pass
 
