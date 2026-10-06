@@ -74,3 +74,32 @@ En los logs verás:
 - **Renovación:** Quaxly Host no la pide; en bot-hosting.net renueva cada 4 días.
 - **Backups:** `backups/` locales + `python backup_firebase.py --test`.
 - **Restaurar:** `python backup_firebase.py --restore backups\firebase_XXX.json`.
+
+## 8. Quaxly Host (FeatherPanel) — pasos exactos
+
+El panel arranca con `python /home/container/app.py` y el repo **ya incluye
+`app.py`**, así que no hay que cambiar el comando de arranque.
+
+1. **Clona el código** en la consola del panel:
+
+   ```bash
+   cd /home/container
+   git clone https://github.com/pokejgameryt-ship-it/PokeBot-Daily.git tmp
+   mv tmp/* tmp/.[!.]* . 2>/dev/null; rm -rf tmp
+   ls -la   # debe aparecer app.py, main.py, requirements.txt...
+   ```
+
+2. **Sube 3 ficheros** (nunca están en git; los `git pull` futuros no los tocan):
+   - `.env` → variables varias (Twitch/Google, etc.)
+   - `.token` → token del bot (POKEBOT_TOKEN)
+   - `firebase-service-account.json` → credenciales Firebase
+
+3. **Variables del panel** (Startup → Variables):
+   - `REQUIREMENTS_FILE` = `requirements.txt` (si no, no instala las deps)
+   - `AUTO_UPDATE` = `1` (git pull en cada arranque = updates sin subir nada)
+
+4. **Start.** Primer arranque: `pip install -r requirements.txt` corre solo.
+   Con la PC encendida verás `Otra instancia es líder; reintentando en 30s`
+   (correcto). Apaga la PC y en ≤90s verás `Conectando como líder (…)`.
+   Recuerde: Python del contenedor es 3.13 y Tesseract no existe (OCR
+   deshabilitado automáticamente, el resto funciona igual).

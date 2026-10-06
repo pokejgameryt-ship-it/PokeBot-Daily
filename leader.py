@@ -23,7 +23,13 @@ LEASE_TTL_MS = 90_000          # el lease caduca a los 90s sin renovar
 RENEW_INTERVAL_S = 30          # cada cuánto se renueva
 WAIT_INTERVAL_S = 30           # esperar entre intentos si otro es líder
 
-INSTANCE_ID = os.getenv("INSTANCE_ID") or socket.gethostname()
+def _default_instance_id() -> str:
+    # pid incluido: dos procesos en el MISMO host (p.ej. PC local) deben
+    # tener identidades distintas, si no "se renuevan" entre sí y hay doble líder.
+    return f"{socket.gethostname()}#{os.getpid()}"
+
+
+INSTANCE_ID = os.getenv("INSTANCE_ID") or _default_instance_id()
 HOSTNAME = socket.gethostname()
 
 

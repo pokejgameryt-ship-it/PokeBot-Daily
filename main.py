@@ -1055,6 +1055,7 @@ async def watchdog_task():
         ("daily_trivia_task", daily_trivia_task),
         ("streak_reminder_task", streak_reminder_task),
         ("reset_stale_streaks_task", reset_stale_streaks_task),
+        ("lease_renew_task", lease_renew_task),
     ]
     
     for name, task in critical_tasks:
@@ -1081,6 +1082,15 @@ async def lease_renew_task():
         # Otra instancia tomó el control: desconectar para no duplicar
         logger.error("Lease de líder perdido (%s); desconectando", leader.INSTANCE_ID)
         await bot.close()
+    else:
+        # visible en log cada 5 min para poder verificar la salud del lease
+        lease_renew_task._n_renew = getattr(lease_renew_task, "_n_renew", 0) + 1
+        if lease_renew_task._n_renew % 10 == 0:
+            logger.info(
+                "Lease renovado OK (%s), %d renovaciones",
+                leader.INSTANCE_ID,
+                lease_renew_task._n_renew,
+            )
 
 
 @lease_renew_task.before_loop
