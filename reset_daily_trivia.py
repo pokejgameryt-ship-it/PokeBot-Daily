@@ -1,6 +1,5 @@
-import os
 import json
-import requests
+import os
 from datetime import datetime
 
 FIREBASE_DB_URL = "https://pokebot-1c544-default-rtdb.europe-west1.firebasedatabase.app/"
@@ -45,7 +44,7 @@ for tid, data in trivia.items():
         
         # Delete it
         ref.child(tid).delete()
-        print(f"  Trivia eliminada correctamente")
+        print("  Trivia eliminada correctamente")
         found = True
         break
 

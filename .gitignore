@@ -5,6 +5,15 @@
 firebase-service-account.json
 iniciar.bat
 .env
+ssh-key*.key
+ssh-key*.key.pub
+*.pem
+*.p12
+*.pfx
+
+# Datos locales sensibles
+reset_data.py
+check_trivia.py
 
 # Entorno virtual
 venv/
@@ -18,6 +27,20 @@ __pycache__/
 
 # Logs
 *.log
+logs/
+
+# Backups locales
+backups/
+
+# Artefactos generados
+.coverage
+coverage.xml
+.pytest_cache/
+.firebase/
+deploy/*.zip
+
+# Legado Oracle Cloud (fuera de servicio)
+pokebot.service
 
 # OS
 .DS_Store

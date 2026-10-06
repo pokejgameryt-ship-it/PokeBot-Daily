@@ -1,8 +1,10 @@
 import json
+import logging
 import os
 import random
-import logging
+
 import requests
+
 import database as db
 
 log = logging.getLogger("question_gen")
@@ -84,7 +86,7 @@ def verify_question(question_data: dict) -> dict | None:
                 question_data["options"] = result["options"]
                 log.info(f"Options also corrected: {result['options']}")
             elif result["correct"] not in question_data["options"]:
-                log.warning(f"Corrected answer not in options, replacing first option")
+                log.warning("Corrected answer not in options, replacing first option")
                 question_data["options"][0] = result["correct"]
             return question_data
         return question_data

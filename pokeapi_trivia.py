@@ -1,4 +1,3 @@
-import random
 import logging
 
 log = logging.getLogger("pokeapi_trivia")

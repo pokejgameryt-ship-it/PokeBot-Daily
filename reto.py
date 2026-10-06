@@ -1,9 +1,10 @@
+
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
+
 import database as db
-from config import RETO_POINTS, REWARD_ROLES, RETO_CHANNEL_ID
-from datetime import datetime
+from config import RETO_CHANNEL_ID, RETO_POINTS, REWARD_ROLES
 
 
 class Reto(commands.Cog):
@@ -47,7 +48,7 @@ class Reto(commands.Cog):
 
         success = db.complete_reto(ctx.author.id, reto["id"])
         if not success:
-            await ctx.send("Ya completaste este reto.", ephemeral=True)
+            await ctx.send("Ya completaste este reto.")
             return
 
         db.update_score(ctx.author.id, RETO_POINTS["completed"], ctx.author.display_name)
@@ -63,7 +64,7 @@ class Reto(commands.Cog):
         )
         embed.set_footer(text="Tu logro ha sido registrado.")
 
-        await ctx.send(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed)
 
         channel = ctx.guild.get_channel(RETO_CHANNEL_ID)
         if channel:

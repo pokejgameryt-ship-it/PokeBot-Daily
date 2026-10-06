@@ -1,0 +1,99 @@
+[project]
+name = "pokebot-daily"
+version = "0.1.0"
+description = "Discord bot for PokeJgamer: trivia, quizzes, streaks, verification"
+requires-python = ">=3.10"
+dependencies = [
+    "discord.py>=2.3.0",
+    "firebase-admin>=6.0.0",
+    "aiohttp>=3.8.0",
+    "requests>=2.31.0",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
+    "psutil>=5.9.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = [
+    "*.pyc",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "logs",
+    "backups",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "LOG", # flake8-logging
+    "TRY", # tryceratops
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+    "DTZ", # datetime
+    "PLR", # pylint
+    "S110",# try-except-pass
+    "S112",# try-except-continue
+    "F401",# unused imports
+    "F541",# f-string without placeholders
+    "PLW", # pylint
+]
+ignore = [
+    "BLE001",  # blind except - too many to fix now
+    "LOG015",  # root logger - will fix in Phase 3
+    "TRY401",  # redundant exception in log - will fix in Phase 3
+    "DTZ005",  # naive datetime - Phase 3 (timezone refactor)
+    "DTZ007",  # naive datetime parse - Phase 3
+    "SIM102",  # nested ifs - not critical
+    "C401",    # set comprehension - not critical
+    "RUF013",  # Optional type - not critical
+    "PLW0602", # global without assignment - not critical
+    "F401",    # unused imports - will fix manually where needed
+    "F541",    # f-string without placeholders - not critical
+    "PLR1722", # sys.exit vs exit - not critical
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "database", "essentials_trivia", "verify", "trivia", "reto", "main", "pokeapi_trivia"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --tb=short --cov=. --cov-report=term-missing --cov-report=xml"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "reset_*.py",
+    "check_*.py",
+    "verify_*.py",
+    "question_gen.py",
+    "pokeapi_trivia.py",
+    "web_server.py",
+    "main.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

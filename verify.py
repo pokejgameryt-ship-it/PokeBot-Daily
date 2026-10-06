@@ -1,36 +1,53 @@
-import discord
-from discord.ext import commands, tasks
-from discord import ui
-import requests
+import asyncio
+import io
+import logging
 import re
 import time
-import asyncio
-import os
-import logging
-import io
 from urllib.parse import urlencode
 
+import discord
+import requests
+from discord import ui
+from discord.ext import commands, tasks
+
 log = logging.getLogger("verify")
+import database as db
 from config import (
-    TWITCH_CLIENT_ID,
-    TWITCH_CLIENT_SECRET,
-    TWITCH_BROADCASTER_ID,
-    TWITCH_BROADCASTER_LOGIN,
-    TWITCH_REDIRECT_URI,
-    YOUTUBE_API_KEY,
-    YOUTUBE_CHANNEL_ID,
-    MIEMBRO_ROLE_ID,
-    TWITCH_VIP_ROLE_ID,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
+    MIEMBRO_ROLE_ID,
+    TWITCH_BROADCASTER_ID,
+    TWITCH_CLIENT_ID,
+    TWITCH_CLIENT_SECRET,
+    TWITCH_REDIRECT_URI,
+    TWITCH_VIP_ROLE_ID,
+    YOUTUBE_API_KEY,
+    YOUTUBE_CHANNEL_ID,
 )
-import database as db
 
 try:
+    import os as _os
+    import shutil as _shutil
+
     import pytesseract
     from PIL import Image
-    HAS_OCR = True
+
+    _tess_cmd = _shutil.which("tesseract")
+    if not _tess_cmd:
+        for _p in (
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ):
+            if _os.path.exists(_p):
+                _tess_cmd = _p
+                break
+    if _tess_cmd:
+        pytesseract.pytesseract.tesseract_cmd = _tess_cmd
+        HAS_OCR = True
+    else:
+        HAS_OCR = False
+        log.warning("Tesseract no encontrado - verificación por screenshot deshabilitada")
 except ImportError:
     HAS_OCR = False
     log.warning("pytesseract no instalado - verificación por screenshot deshabilitada")
@@ -40,6 +57,7 @@ YOUTUBE_CHANNEL_NAMES = [
     "poke jgamer",
     "pokej gameryt",
     "pokejgamer yt",
+    "pokejgamer",
 ]
 
 SUBSCRIBED_KEYWORDS = [
@@ -47,6 +65,8 @@ SUBSCRIBED_KEYWORDS = [
     "subscribed",
     "suscrib",
     "subscrib",
+    "suscripto",
+    "suscrito/a",
 ]
 
 _twitch_token = None
@@ -72,39 +92,45 @@ def _get_twitch_token():
     return None
 
 
-def check_twitch_follow(username: str) -> bool:
+def check_twitch_follow(username: str):
     token = _get_twitch_token()
     if not token:
         log.error("No se pudo obtener token de Twitch")
-        return False
+        return None
     headers = {"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"}
-    resp = requests.get(
-        "https://api.twitch.tv/helix/users",
-        headers=headers,
-        params={"login": username.lower()},
-    )
-    log.info(f"Twitch users API: status={resp.status_code}, response={resp.text[:300]}")
-    if resp.status_code != 200:
-        log.error(f"Twitch users API falló ({resp.status_code}): {resp.text}")
-        return False
-    users = resp.json().get("data", [])
-    if not users:
-        log.error(f"No se encontró el usuario de Twitch: {username}")
-        return False
-    user_id = users[0]["id"]
-    log.info(f"Twitch user found: {username} -> id={user_id}")
-    resp = requests.get(
-        "https://api.twitch.tv/helix/channels/followers",
-        headers=headers,
-        params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
-    )
-    log.info(f"Twitch followers API: status={resp.status_code}, response={resp.text[:300]}")
-    if resp.status_code != 200:
-        log.error(f"Twitch followers API falló ({resp.status_code}): {resp.text}")
-        return False
-    result = len(resp.json().get("data", [])) > 0
-    log.info(f"check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, follows={result}")
-    return result
+    try:
+        resp = requests.get(
+            "https://api.twitch.tv/helix/users",
+            headers=headers,
+            params={"login": username.lower()},
+            timeout=10,
+        )
+        log.info(f"Twitch users API: status={resp.status_code}")
+        if resp.status_code != 200:
+            log.error(f"Twitch users API falló ({resp.status_code}): {resp.text}")
+            return None
+        users = resp.json().get("data", [])
+        if not users:
+            log.error(f"No se encontró el usuario de Twitch: {username}")
+            return False
+        user_id = users[0]["id"]
+        log.info(f"Twitch user found: {username} -> id={user_id}")
+        resp = requests.get(
+            "https://api.twitch.tv/helix/channels/followers",
+            headers=headers,
+            params={"broadcaster_id": TWITCH_BROADCASTER_ID, "user_id": user_id},
+            timeout=10,
+        )
+        log.info(f"Twitch followers API: status={resp.status_code}")
+        if resp.status_code != 200:
+            log.error(f"Twitch followers API falló ({resp.status_code}): {resp.text}")
+            return None
+        result = len(resp.json().get("data", [])) > 0
+        log.info(f"check_twitch_follow({username}): user_id={user_id}, broadcaster_id={TWITCH_BROADCASTER_ID}, follows={result}")
+        return result
+    except requests.RequestException as e:
+        log.exception("Error de red en check_twitch_follow: %s", e)
+        return None
 
 
 def get_twitch_user_id(username: str) -> str:
@@ -289,7 +315,7 @@ class YouTubeCodeModal(ui.Modal, title="Pega el código de YouTube"):
                     ),
                     ephemeral=True,
                 )
-            except:
+            except Exception:
                 pass
 
 
@@ -441,7 +467,7 @@ class TwitchCodeModal(ui.Modal, title="Pega el código de Twitch"):
                     ),
                     ephemeral=True,
                 )
-            except:
+            except Exception:
                 pass
 
 
@@ -466,6 +492,10 @@ class YouTubeScreenshotView(ui.View):
     @ui.button(label="📸 Enviar screenshot", style=discord.ButtonStyle.red, emoji="📸", custom_id="yt_screenshot_btn")
     async def screenshot_button(self, interaction: discord.Interaction, button: ui.Button):
         try:
+            await interaction.response.defer(ephemeral=True)
+        except Exception:
+            pass
+        try:
             dm_embed = discord.Embed(
                 title="📸 Envía tu screenshot de YouTube",
                 description=(
@@ -475,12 +505,12 @@ class YouTubeScreenshotView(ui.View):
                     "2. Haz clic en el botón de suscripción\n"
                     "3. Haz una captura de pantalla que muestre que pone \"Suscrito\"\n"
                     "4. Envía la imagen aquí\n\n"
-                    f"▶️ **[Ir a mi canal de YouTube](https://youtube.com/@pokejgamer)**"
+                    "▶️ **[Ir a mi canal de YouTube](https://youtube.com/@pokejgamer)**"
                 ),
                 color=discord.Color.blue()
             )
             await interaction.user.send(embed=dm_embed)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=discord.Embed(
                     title="📩 Te he enviado un MD",
                     description="Revisa tus mensajes privados para completar la verificación.",
@@ -489,7 +519,7 @@ class YouTubeScreenshotView(ui.View):
                 ephemeral=True
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=discord.Embed(
                     title="❌ No puedo enviarte MD",
                     description="Tienes los mensajes privados desactivados. Actívalos para verificar.",
@@ -503,8 +533,11 @@ class YouTubeScreenshotView(ui.View):
             return msg.author.id == interaction.user.id and msg.guild is None and msg.attachments
 
         try:
-            msg = await interaction.client.wait_for('message', check=check, timeout=None)
-        except:
+            msg = await interaction.client.wait_for('message', check=check, timeout=300)
+        except asyncio.TimeoutError:
+            await interaction.user.send("⏳ Tiempo agotado. Intenta de nuevo.")
+            return
+        except Exception:
             return
 
         attachment = msg.attachments[0]
@@ -532,9 +565,21 @@ class YouTubeScreenshotView(ui.View):
 
         try:
             image = Image.open(io.BytesIO(image_data))
-            text = pytesseract.image_to_string(image, lang='spa+eng')
+            from PIL import ImageEnhance, ImageFilter, ImageOps
+
+            def _ocr_pass(img):
+                gray = img.convert('L')
+                enhanced = ImageEnhance.Contrast(gray).enhance(2.0)
+                sharp = enhanced.filter(ImageFilter.SHARPEN)
+                bw = sharp.point(lambda x: 255 if x > 140 else 0)
+                return pytesseract.image_to_string(bw, lang='spa+eng')
+
+            text = _ocr_pass(image)
+            inverted = ImageOps.invert(image.convert('L')).convert('RGB')
+            text_inv = _ocr_pass(inverted)
+            text = text + "\n" + text_inv
             text_lower = text.lower()
-        except Exception as e:
+        except Exception:
             await interaction.user.send(
                 embed=discord.Embed(
                     title="❌ Error al procesar imagen",
@@ -595,7 +640,7 @@ class VerifyMainView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube_v3")
+    @ui.button(label="Verificar con YouTube", style=discord.ButtonStyle.red, emoji="▶️", custom_id="verify_main_youtube_v5")
     async def youtube_button(self, interaction: discord.Interaction, button: ui.Button):
         role = interaction.guild.get_role(MIEMBRO_ROLE_ID) if interaction.guild else None
         if role and role in interaction.user.roles:
@@ -697,11 +742,12 @@ class Verify(commands.Cog):
             member = guild.get_member(user_data["user_id"])
             if not member:
                 continue
-            if check_twitch_follow(username):
+            follows = check_twitch_follow(username)
+            if follows is True:
                 if role not in member.roles:
                     await member.add_roles(role)
                     assigned += 1
-            else:
+            elif follows is False:
                 if role in member.roles:
                     await member.remove_roles(role)
                     db.set_verified(member.id, False, None, None)
@@ -710,30 +756,34 @@ class Verify(commands.Cog):
 
     @tasks.loop(minutes=10)
     async def check_followers(self):
-        guild = self.bot.guilds[0] if self.bot.guilds else None
-        if not guild:
-            return
-        role = guild.get_role(MIEMBRO_ROLE_ID)
-        if not role:
-            return
-        verified_users = db.get_all_verified_users()
-        removed = 0
-        for user_data in verified_users:
-            if user_data.get("platform") != "twitch":
-                continue
-            username = user_data.get("username")
-            if not username or username == "auto-detected":
-                continue
-            member = guild.get_member(user_data["user_id"])
-            if not member:
-                continue
-            if not check_twitch_follow(username):
-                if role in member.roles:
-                    await member.remove_roles(role)
-                    db.set_verified(member.id, False, None, None)
-                    removed += 1
-        if removed > 0:
-            log.info(f" check_followers: removido verificación de {removed} miembros que dejaron de seguir")
+        try:
+            guild = self.bot.guilds[0] if self.bot.guilds else None
+            if not guild:
+                return
+            role = guild.get_role(MIEMBRO_ROLE_ID)
+            if not role:
+                return
+            verified_users = db.get_all_verified_users()
+            removed = 0
+            for user_data in verified_users:
+                if user_data.get("platform") != "twitch":
+                    continue
+                username = user_data.get("username")
+                if not username or username == "auto-detected":
+                    continue
+                member = guild.get_member(user_data["user_id"])
+                if not member:
+                    continue
+                follows = check_twitch_follow(username)
+                if follows is False:
+                    if role in member.roles:
+                        await member.remove_roles(role)
+                        db.set_verified(member.id, False, None, None)
+                        removed += 1
+            if removed > 0:
+                log.info(f" check_followers: removido verificación de {removed} miembros que dejaron de seguir")
+        except Exception as e:
+            log.exception("Error en check_followers: %s", e)
 
     @check_followers.before_loop
     async def before_check_followers(self):
@@ -741,30 +791,33 @@ class Verify(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def check_vips(self):
-        guild = self.bot.guilds[0] if self.bot.guilds else None
-        if not guild:
-            return
-        role = guild.get_role(TWITCH_VIP_ROLE_ID)
-        if not role:
-            return
-        twitch_vips = get_twitch_vips()
-        verified_users = db.get_all_verified_users()
-        for user_data in verified_users:
-            if user_data.get("platform") != "twitch":
-                continue
-            username = user_data.get("username")
-            if not username or username == "auto-detected":
-                continue
-            member = guild.get_member(user_data["user_id"])
-            if not member:
-                continue
-            twitch_id = get_twitch_user_id(username)
-            if twitch_id and twitch_id in twitch_vips:
-                if role not in member.roles:
-                    await member.add_roles(role)
-            else:
-                if role in member.roles:
-                    await member.remove_roles(role)
+        try:
+            guild = self.bot.guilds[0] if self.bot.guilds else None
+            if not guild:
+                return
+            role = guild.get_role(TWITCH_VIP_ROLE_ID)
+            if not role:
+                return
+            twitch_vips = get_twitch_vips()
+            verified_users = db.get_all_verified_users()
+            for user_data in verified_users:
+                if user_data.get("platform") != "twitch":
+                    continue
+                username = user_data.get("username")
+                if not username or username == "auto-detected":
+                    continue
+                member = guild.get_member(user_data["user_id"])
+                if not member:
+                    continue
+                twitch_id = get_twitch_user_id(username)
+                if twitch_id and twitch_id in twitch_vips:
+                    if role not in member.roles:
+                        await member.add_roles(role)
+                else:
+                    if role in member.roles:
+                        await member.remove_roles(role)
+        except Exception as e:
+            log.exception("Error en check_vips: %s", e)
 
     @check_vips.before_loop
     async def before_check_vips(self):
@@ -779,10 +832,11 @@ class Verify(commands.Cog):
                 "Para acceder al servidor, debes seguirme en **Twitch** o **YouTube**.\n\n"
                 "**¿Cómo verificar?**\n"
                 "1. Haz clic en uno de los botones de abajo\n"
-                "2. Sigue los pasos que se muestran\n\n"
+                "2. Autoriza con tu cuenta de Google o Twitch\n"
+                "3. ¡Listo! Se verifica automáticamente\n\n"
                 "**Opciones:**\n"
-                "▶️ **YouTube** → Envía un screenshot de que estás suscrito\n"
-                "🟣 **Twitch** → Verifica directamente con tu cuenta de Twitch\n\n"
+                "▶️ **YouTube** → Verifica con tu cuenta de Google (comprueba tu suscripción)\n"
+                "🟣 **Twitch** → Verifica con tu cuenta de Twitch (comprueba tu seguimiento)\n\n"
                 "**Requisitos:**\n"
                 "• Debes seguir el canal en **Twitch** o estar suscrito en **YouTube**\n"
                 "• Tu suscripción/seguimiento debe ser **pública**\n\n"
@@ -805,6 +859,7 @@ class Verify(commands.Cog):
         assigned = 0
         removed = 0
         checked = 0
+        skipped = 0
         for user_data in verified_users:
             platform = user_data.get("platform")
             username = user_data.get("username")
@@ -814,23 +869,24 @@ class Verify(commands.Cog):
             if not member:
                 continue
             checked += 1
-            follows = False
             if platform == "twitch":
                 follows = check_twitch_follow(username)
-            elif platform == "youtube":
-                follows = check_youtube_subscription(username)
-            if follows:
-                if role not in member.roles:
-                    await member.add_roles(role)
-                    assigned += 1
+                if follows is True:
+                    if role not in member.roles:
+                        await member.add_roles(role)
+                        assigned += 1
+                elif follows is False:
+                    if role in member.roles:
+                        await member.remove_roles(role)
+                        db.set_verified(member.id, False, None, None)
+                        removed += 1
             else:
-                if role in member.roles:
-                    await member.remove_roles(role)
-                    db.set_verified(member.id, False, None, None)
-                    removed += 1
+                # YouTube: no se puede verificar vía API (requiere OAuth del usuario)
+                # Saltamos y no quitamos roles automáticamente
+                skipped += 1
         await ctx.send(
             f"✅ Verificación completada.\n"
-            f"📊 Revisados: **{checked}**\n"
+            f"📊 Revisados: **{checked}** (Twitch: {checked - skipped}, YouTube saltados: {skipped})\n"
             f"🟢 Asignado: **{assigned}**\n"
             f"🔴 Quitado: **{removed}**"
         )

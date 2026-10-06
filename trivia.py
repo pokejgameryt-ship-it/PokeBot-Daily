@@ -1,12 +1,20 @@
+import asyncio
+import logging
 import random
-import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-from datetime import datetime, timezone, timedelta
-import database as db
-from config import TRIVIA_POINTS, TRIVIA_CHANNEL_ID, STREAK_ROLE_ID
+import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-TZ_SPAIN = timezone(timedelta(hours=2))
+import discord
+from discord import app_commands
+from discord.ext import commands, tasks
+
+import database as db
+from config import STREAK_ROLE_ID
+
+logger = logging.getLogger("trivia")
+
+TZ_SPAIN = ZoneInfo("Europe/Madrid")
 
 DIFFICULTY_CONFIG = {
     "easy": {"label": "Fácil", "emoji": "🟢", "points": 5, "color": discord.Color.green()},
@@ -15,6 +23,10 @@ DIFFICULTY_CONFIG = {
 }
 
 TRIVIA_STORE = {}
+
+
+def _run_db_sync(func, *args, **kwargs):
+    return asyncio.to_thread(func, *args, **kwargs)
 
 
 class TriviaView(discord.ui.View):
@@ -26,11 +38,16 @@ class TriviaView(discord.ui.View):
         self.difficulty = difficulty
         self.responders = set()
         self.message = None
+        # Purgar trivias de más de26h (evita fuga de memoria en TRIVIA_STORE)
+        _cutoff = time.time() - 26 * 3600
+        for _k in [k for k, v in TRIVIA_STORE.items() if v.get("created", 0) < _cutoff]:
+            TRIVIA_STORE.pop(_k, None)
         TRIVIA_STORE[trivia_id] = {
             "correct": correct_answer,
             "options": options,
             "difficulty": difficulty,
             "responders": self.responders,
+            "created": time.time(),
         }
 
     @discord.ui.button(label="A", style=discord.ButtonStyle.primary, custom_id="trivia_btn_a")
@@ -66,6 +83,13 @@ class TriviaView(discord.ui.View):
             )
             return
 
+        try:
+            await asyncio.wait_for(interaction.response.defer(ephemeral=True), timeout=2.5)
+        except asyncio.TimeoutError:
+            return
+        except Exception:
+            pass
+
         store["responders"].add(uid)
 
         options = store["options"]
@@ -76,11 +100,11 @@ class TriviaView(discord.ui.View):
         points = DIFFICULTY_CONFIG[difficulty]["points"]
 
         if is_correct:
-            db.update_score(uid, points, interaction.user.display_name)
-            streak_change = db.update_trivia_stats(uid, True, interaction.user.display_name)
-            db.mark_trivia_answered(trivia_id, uid)
-            score = db.get_total_score(uid)
-            streak = db.get_streak(uid)
+            await _run_db_sync(db.update_score, uid, points, interaction.user.display_name)
+            streak_change = await _run_db_sync(db.update_trivia_stats, uid, True, interaction.user.display_name)
+            await _run_db_sync(db.mark_trivia_answered, trivia_id, uid)
+            score = await _run_db_sync(db.get_total_score, uid)
+            streak = await _run_db_sync(db.get_streak, uid)
 
             if streak_change["old_streak"] == 0 and streak_change["new_streak"] > 0:
                 role = interaction.guild.get_role(STREAK_ROLE_ID)
@@ -98,8 +122,8 @@ class TriviaView(discord.ui.View):
             embed.add_field(name="Racha actual", value=f"{streak} 🔥")
             embed.set_footer(text="Solo tú puedes ver esta respuesta")
         else:
-            streak_change = db.update_trivia_stats(uid, False, interaction.user.display_name)
-            db.mark_trivia_answered(trivia_id, uid)
+            streak_change = await _run_db_sync(db.update_trivia_stats, uid, False, interaction.user.display_name)
+            await _run_db_sync(db.mark_trivia_answered, trivia_id, uid)
 
             if streak_change["old_streak"] > 0 and streak_change["new_streak"] == 0:
                 role = interaction.guild.get_role(STREAK_ROLE_ID)
@@ -114,7 +138,7 @@ class TriviaView(discord.ui.View):
             embed.add_field(name="Dificultad", value=DIFFICULTY_CONFIG[difficulty]["label"])
             embed.set_footer(text="Solo tú puedes ver esta respuesta")
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 class WeeklyQuizStartView(discord.ui.View):
@@ -163,6 +187,11 @@ class WeeklyQuizStartView(discord.ui.View):
             return
 
         try:
+            await interaction.response.defer(ephemeral=True)
+        except Exception:
+            pass
+
+        try:
             dm_embed = discord.Embed(
                 title="🎯 Quiz Semanal de Pokémon",
                 description=(
@@ -173,7 +202,7 @@ class WeeklyQuizStartView(discord.ui.View):
                 color=discord.Color.blue()
             )
             await interaction.user.send(embed=dm_embed)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=discord.Embed(
                     title="📩 Te he enviado un MD",
                     description="Revisa tus mensajes privados para el quiz semanal.",
@@ -182,7 +211,7 @@ class WeeklyQuizStartView(discord.ui.View):
                 ephemeral=True
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=discord.Embed(
                     title="❌ No puedo enviarte MD",
                     description="Tienes los mensajes privados desactivados. Actívalos para el quiz.",
@@ -211,8 +240,10 @@ async def send_quiz_question(user, questions, current_idx, week_key, answers):
     view = WeeklyQuizAnswerView(questions, current_idx, week_key, answers)
     try:
         await user.send(embed=embed, view=view)
-    except:
-        pass
+    except discord.Forbidden:
+        logger.warning("No se pudo enviar el quiz semanal por MD a %s (DMs cerrados)", user.id)
+    except Exception:
+        logger.exception("Error enviando pregunta del quiz semanal a %s", user.id)
 
 
 class WeeklyQuizAnswerView(discord.ui.View):
@@ -232,6 +263,23 @@ class WeeklyQuizAnswerView(discord.ui.View):
         await self.process_answer(interaction, False)
 
     async def process_answer(self, interaction: discord.Interaction, answer: bool):
+        answers_already = db.get_weekly_quiz_answers(self.week_key)
+        if str(interaction.user.id) in answers_already:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="✅ Ya completaste el quiz",
+                    description="Ya has respondido el quiz semanal de esta semana.",
+                    color=discord.Color.green()
+                ),
+                ephemeral=True
+            )
+            return
+
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except Exception:
+            pass
+
         new_answers = self.answers + [answer]
         next_idx = self.current_idx + 1
 
@@ -240,7 +288,7 @@ class WeeklyQuizAnswerView(discord.ui.View):
         result_text = f"{correct_emoji} Tu respuesta: **{'Verdadero' if answer else 'Falso'}**\n"
         result_text += f"Respuesta correcta: **{'Verdadero' if q['answer'] else 'Falso'}**"
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             embed=discord.Embed(
                 title=f"Respuesta {self.current_idx + 1}/{len(self.questions)}",
                 description=result_text,
@@ -293,8 +341,9 @@ async def finish_weekly_quiz(user, questions, answers, week_key):
     embed.add_field(name="Resultados", value=result_text, inline=False)
 
     try:
-        await user.send(embed=embed)
-    except:
+        view = discord.ui.View()
+        await user.send(embed=embed, view=view)
+    except Exception:
         pass
 
 
@@ -404,7 +453,8 @@ class Trivia(commands.Cog):
         now = datetime.now(TZ_SPAIN)
         if now.weekday() != 0:
             return
-        if now.hour != 10 or now.minute != 0:
+        # Ventana 10:00-10:30 con retry
+        if now.hour != 10 or now.minute < 0 or now.minute > 30:
             return
 
         week_key = now.strftime("%Y-W%W")
@@ -420,24 +470,24 @@ class Trivia(commands.Cog):
         if not channel:
             return
 
-        existing = db.get_active_weekly_quiz()
+        existing = await asyncio.to_thread(db.get_active_weekly_quiz)
         if existing:
             old_key = existing["id"]
             if old_key != week_key:
-                db.close_weekly_quiz(old_key)
+                await asyncio.to_thread(db.close_all_old_weekly_quizzes, week_key)
             else:
                 self._weekly_posted_key = week_key
                 return
 
-        used_questions = db.get_used_weekly_questions()
+        used_questions = await asyncio.to_thread(db.get_used_weekly_questions)
         available = [q for q in TRUE_FALSE_QUESTIONS if q["question"] not in used_questions]
         if len(available) < 10:
             available = TRUE_FALSE_QUESTIONS[:]
 
         questions = random.sample(available, 10)
-        db.save_weekly_quiz(questions, week_key)
+        await asyncio.to_thread(db.save_weekly_quiz, questions, week_key)
         for q in questions:
-            db.mark_weekly_question_used(q["question"])
+            await asyncio.to_thread(db.mark_weekly_question_used, q["question"])
 
         embed = discord.Embed(
             title="🎯 Quiz Semanal de Pokémon",
@@ -460,7 +510,7 @@ class Trivia(commands.Cog):
         view = WeeklyQuizStartView()
         await channel.send(embed=embed, view=view)
         self._weekly_posted_key = week_key
-        logging.info(f"Weekly quiz posted for {week_key}")
+        logger.info(f"Weekly quiz posted for {week_key}")
 
     @weekly_quiz_task.before_loop
     async def before_weekly_quiz(self):

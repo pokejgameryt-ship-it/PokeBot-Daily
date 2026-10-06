@@ -1,7 +1,6 @@
-import random
 import logging
 import os
-import re
+import random
 
 log = logging.getLogger("essentials_trivia")
 
@@ -753,6 +752,13 @@ def _generate_move_accuracy_question():
     return {"question": question, "correct": correct, "options": options}
 
 
+def _format_ability_desc(desc: str) -> str:
+    translated = _translate_desc(desc)
+    if translated != desc:
+        return f"{translated}\n({desc})"
+    return desc
+
+
 def _generate_ability_description_question():
     valid_abilities = [a for a in _abilities_data if "description" in _abilities_data[a]]
     if not valid_abilities:
@@ -760,7 +766,7 @@ def _generate_ability_description_question():
     ability_id = random.choice(valid_abilities)
     ability = _abilities_data[ability_id]
     eng = ability["description"]
-    correct = f"{eng}\n{_translate_desc(eng)}"
+    correct = _format_ability_desc(eng)
     question = f"¿Qué efecto tiene la habilidad {ability_id}?"
     all_abilities = [a for a in valid_abilities if a != ability_id and _abilities_data[a].get("description")]
     if len(all_abilities) < 2:
@@ -769,7 +775,7 @@ def _generate_ability_description_question():
     wrong_options = []
     for a in wrong_ids:
         e = _abilities_data[a]["description"]
-        wrong_options.append(f"{e}\n{_translate_desc(e)}")
+        wrong_options.append(_format_ability_desc(e))
     options = [correct] + wrong_options
     random.shuffle(options)
     return {"question": question, "correct": correct, "options": options}

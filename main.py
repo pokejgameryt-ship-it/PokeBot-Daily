@@ -1,37 +1,87 @@
-import sys
-import io
-import os
 import asyncio
+import io
 import logging
+import os
+import re
+import sys
+from logging.handlers import RotatingFileHandler
+
 import psutil
 
 if sys.stdout is not None:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
+# Logger propio (no root) para poder redirigir a fichero y filtrar secretos
+logger = logging.getLogger("pokebot")
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
+
+# Consola
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Fichero con rotación (logs/bot.log, 5 MB x 5)
+os.makedirs("logs", exist_ok=True)
+file_handler = RotatingFileHandler(
+    "logs/bot.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8"
+)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Filtro para redactar tokens en logs
+class SecretFilter(logging.Filter):
+    TOKEN_PATTERNS = [
+        (re.compile(r'"access_token"\s*:\s*"([^"]+)"'), '"access_token": "***"'),
+        (re.compile(r'"refresh_token"\s*:\s*"([^"]+)"'), '"refresh_token": "***"'),
+        (re.compile(r'Bearer\s+([A-Za-z0-9\-\._~]+)'), 'Bearer ***'),
+        (re.compile(r'token=([A-Za-z0-9\-\._~]+)'), 'token=***'),
+    ]
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+            for pattern, repl in self.TOKEN_PATTERNS:
+                msg = pattern.sub(repl, msg)
+            record.msg = msg
+            record.args = ()
+        except Exception:
+            pass
+        return True
+
+for h in logger.handlers:
+    h.addFilter(SecretFilter())
 
 proc = psutil.Process()
 try:
     proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
 except AttributeError:
     proc.nice(1)
-logging.info(f"Process priority set to BELOW_NORMAL. PID: {proc.pid}")
+logger.info("Process priority set to BELOW_NORMAL. PID: %s", proc.pid)
+
+import random as _random
+from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+    TZ_SPAIN = ZoneInfo("Europe/Madrid")
+except Exception:
+    from datetime import timezone
+    TZ_SPAIN = timezone(timedelta(hours=2))
 
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
-from datetime import datetime, timezone, timedelta
+
 import database as db
+import leader
 from config import (
     DISCORD_TOKEN,
-    TRIVIA_CHANNEL_ID,
-    TRIVIA_CHANNEL_NAME,
-    TRIVIA_HOUR,
-    TRIVIA_MINUTE,
+    MIEMBRO_ROLE_ID,
     REWARD_ROLES,
     STREAK_ROLE_ID,
+    TRIVIA_CHANNEL_ID,
+    TRIVIA_HOUR,
+    TRIVIA_MINUTE,
 )
-
-TZ_SPAIN = timezone(timedelta(hours=2))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -58,20 +108,70 @@ async def check_channel(ctx):
     return True
 
 
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.CheckFailure):
+        return
+    if isinstance(error, app_commands.CommandOnCooldown):
+        await interaction.response.send_message(
+            f"⏳ Comando en enfriamiento. Intenta en {error.retry_after:.0f}s.",
+            ephemeral=True,
+        )
+        return
+    logger.exception("Error en slash command %s: %s", interaction.command, error)
+    if interaction.response.is_done():
+        await interaction.followup.send("❌ Ha ocurrido un error interno.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Ha ocurrido un error interno.", ephemeral=True)
+
+
+def slash_check_channel(interaction: discord.Interaction) -> bool:
+    if interaction.command.name in COMMANDS_ALLOWED_CHANNELS:
+        return True
+    if interaction.channel.id != ALLOWED_CHANNEL_ID:
+        raise app_commands.CheckFailure(
+            f"Este comando solo funciona en <#{ALLOWED_CHANNEL_ID}>"
+        )
+    return True
+
+# Aplicar check a todos los slash commands cargados después
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    if isinstance(error, commands.CheckFailure):
+        return
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Falta un argumento requerido: `{error.param.name}`")
+        return
+    if isinstance(error, commands.BadArgument):
+        await ctx.send(f"❌ Argumento inválido: {error}")
+        return
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"⏳ Comando en enfriamiento. Intenta en {error.retry_after:.0f}s.")
+        return
+    
+    logger.exception("Error en comando %s: %s", ctx.command, error)
+    await ctx.send("❌ Ha ocurrido un error interno. Se ha notificado al administrador.")
+
+
 @bot.event
 async def on_ready():
     db.init_db()
     
-    # Cargar cogs
-    await bot.load_extension("trivia")
-    await bot.load_extension("reto")
-    await bot.load_extension("verify")
-    
     print(f"✅ {bot.user} está online y listo para funcionar.")
-    print(f"📊 Base de datos inicializada.")
-    daily_trivia_task.start()
-    streak_reminder_task.start()
-    reset_stale_streaks_task.start()
+    print("📊 Base de datos inicializada.")
+    
+    # Evitar reiniciar tasks en reconexiones (on_ready se dispara varias veces)
+    if not daily_trivia_task.is_running():
+        daily_trivia_task.start()
+    if not streak_reminder_task.is_running():
+        streak_reminder_task.start()
+    if not reset_stale_streaks_task.is_running():
+        reset_stale_streaks_task.start()
+    
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.playing,
@@ -91,15 +191,14 @@ async def on_ready():
                 try:
                     channel = guild.get_channel(TRIVIA_CHANNEL_ID)
                     if channel:
-                        import random
-                        from trivia import TriviaView, DIFFICULTY_CONFIG
                         from pokeapi_trivia import generate_daily_trivia
-                        difficulty = random.choice(["easy", "medium", "hard"])
+                        from trivia import DIFFICULTY_CONFIG, TriviaView
+                        difficulty = _random.choice(["easy", "medium", "hard"])
                         used_questions = db.get_used_questions()
                         trivia = generate_daily_trivia(used_questions)
                         if trivia:
                             options = trivia["options"][:]
-                            random.shuffle(options)
+                            _random.shuffle(options)
                             correct = trivia["correct"]
                             db.save_trivia_question(trivia["question"], correct, options)
                             db.mark_question_used(trivia["question"])
@@ -121,9 +220,9 @@ async def on_ready():
                                 msg = await channel.send(embed=embed, view=view)
                                 view.message = msg
                                 db.save_startup_task("daily_trivia", today)
-                                logging.info("CATCHUP: Posted missed daily trivia")
+                                logger.info("CATCHUP: Posted missed daily trivia")
                 except Exception as e:
-                    logging.error(f"CATCHUP error daily trivia: {e}")
+                    logger.error(f"CATCHUP error daily trivia: {e}")
 
         # 2. Weekly quiz perdida (lunes)
         if now.weekday() == 0 and now.hour >= 10:
@@ -141,7 +240,7 @@ async def on_ready():
                             available = [q for q in TRUE_FALSE_QUESTIONS if q["question"] not in used_questions]
                             if len(available) < 10:
                                 available = TRUE_FALSE_QUESTIONS[:]
-                            questions = random.sample(available, 10)
+                            questions = _random.sample(available, 10)
                             db.save_weekly_quiz(questions, week_key)
                             for q in questions:
                                 db.mark_weekly_question_used(q["question"])
@@ -165,9 +264,9 @@ async def on_ready():
                             view = WeeklyQuizStartView()
                             await channel.send(embed=embed, view=view)
                             db.save_startup_task("weekly_quiz", today)
-                            logging.info(f"CATCHUP: Posted missed weekly quiz for {week_key}")
+                            logger.info(f"CATCHUP: Posted missed weekly quiz for {week_key}")
                 except Exception as e:
-                    logging.error(f"CATCHUP error weekly quiz: {e}")
+                    logger.error(f"CATCHUP error weekly quiz: {e}")
 
         # 3. Check followers inmediato
         if not db.was_startup_task_done("check_followers", today):
@@ -192,10 +291,10 @@ async def on_ready():
                                 db.set_verified(member.id, False, None, None)
                                 removed += 1
                     if removed > 0:
-                        logging.info(f"CATCHUP: Removed verification from {removed} unfollowers")
+                        logger.info(f"CATCHUP: Removed verification from {removed} unfollowers")
                     db.save_startup_task("check_followers", today)
             except Exception as e:
-                logging.error(f"CATCHUP error check_followers: {e}")
+                logger.error(f"CATCHUP error check_followers: {e}")
 
         # 4. Reset streaks rotas
         if not db.was_startup_task_done("stale_streaks", today):
@@ -218,7 +317,7 @@ async def on_ready():
                         )
                 db.save_startup_task("stale_streaks", today)
             except Exception as e:
-                logging.error(f"CATCHUP error stale_streaks: {e}")
+                logger.error(f"CATCHUP error stale_streaks: {e}")
 
         # 5. Recordatorios de racha pendientes
         if not db.was_startup_task_done("streak_reminders", today):
@@ -236,9 +335,9 @@ async def on_ready():
                         )
                 db.save_startup_task("streak_reminders", today)
             except Exception as e:
-                logging.error(f"CATCHUP error streak_reminders: {e}")
+                logger.error(f"CATCHUP error streak_reminders: {e}")
 
-    logging.info("CATCHUP: Startup tasks completed")
+    logger.info("CATCHUP: Startup tasks completed")
 
 
 @bot.event
@@ -296,7 +395,7 @@ async def dar_miembros_command(ctx: commands.Context):
             try:
                 await member.add_roles(role)
                 count += 1
-            except:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
     
     embed = discord.Embed(
@@ -307,10 +406,26 @@ async def dar_miembros_command(ctx: commands.Context):
     await msg.edit(embed=embed)
 
 
+_daily_trivia_posted_date = None
+
 @tasks.loop(minutes=1)
 async def daily_trivia_task():
+    if not await asyncio.to_thread(leader.is_leader):
+        return
     now = datetime.now(TZ_SPAIN)
-    if now.hour != TRIVIA_HOUR or now.minute != TRIVIA_MINUTE:
+    # Ventana 10:00-10:30 con retry
+    if now.hour != TRIVIA_HOUR or now.minute < TRIVIA_MINUTE or now.minute > 30:
+        return
+
+    global _daily_trivia_posted_date
+    today = now.date()
+    if _daily_trivia_posted_date == today:
+        return
+
+    # Verificar si ya existe en BD (catch-up o previo)
+    daily = await asyncio.to_thread(db.get_daily_trivia)
+    if daily:
+        _daily_trivia_posted_date = today
         return
 
     try:
@@ -322,32 +437,34 @@ async def daily_trivia_task():
         if not channel:
             return
 
-        from trivia import TriviaView, DIFFICULTY_CONFIG
-        from pokeapi_trivia import generate_daily_trivia
-        import random
 
-        difficulty = random.choice(["easy", "medium", "hard"])
+        from pokeapi_trivia import generate_daily_trivia
+        from trivia import DIFFICULTY_CONFIG, TriviaView
+
+        difficulty = _random.choice(["easy", "medium", "hard"])
         
         used_questions = db.get_used_questions()
-        logging.info(f"Used questions count: {len(used_questions)}")
+        logger.info(f"Used questions count: {len(used_questions)}")
         trivia = generate_daily_trivia(used_questions)
         if not trivia:
-            logging.error("generate_daily_trivia returned None")
+            logger.error("generate_daily_trivia returned None")
             return
         
-        logging.info(f"Generated trivia: {trivia['question'][:50]}...")
+        logger.info(f"Generated trivia: {trivia['question'][:50]}...")
 
         options = trivia["options"][:]
-        random.shuffle(options)
+        _random.shuffle(options)
 
         correct = trivia["correct"]
-        db.save_trivia_question(trivia["question"], correct, options)
-        db.mark_question_used(trivia["question"])
+        await asyncio.to_thread(db.save_trivia_question, trivia["question"], correct, options)
+        await asyncio.to_thread(db.mark_question_used, trivia["question"])
 
-        daily = db.get_daily_trivia()
+        daily = await asyncio.to_thread(db.get_daily_trivia)
         if not daily:
-            logging.error("get_daily_trivia returned None after save")
+            logger.error("get_daily_trivia returned None after save")
             return
+
+        _daily_trivia_posted_date = today
 
         diff_config = DIFFICULTY_CONFIG[difficulty]
 
@@ -371,6 +488,9 @@ async def daily_trivia_task():
         msg = await channel.send(embed=embed, view=view)
         view.message = msg
         _active_views.append(view)
+        # Mantener solo las7 vistas más recientes (evita fuga de memoria)
+        if len(_active_views) > 7:
+            _active_views.pop(0)
 
         if now.weekday() == 0:
             await asyncio.sleep(2)
@@ -426,7 +546,7 @@ async def daily_trivia_task():
                 await channel.send(embed=embed_streak)
 
     except Exception as e:
-        logging.exception(f"Error in daily_trivia_task: {e}")
+        logger.exception(f"Error in daily_trivia_task: {e}")
 
 
 @daily_trivia_task.before_loop
@@ -436,24 +556,38 @@ async def before_daily_trivia():
 
 @tasks.loop(minutes=1)
 async def streak_reminder_task():
-    now = datetime.now(TZ_SPAIN)
-    if now.hour != TRIVIA_HOUR or now.minute != 0:
-        return
-    users = db.get_users_needing_reminder()
-    for user_data in users:
-        try:
-            user = await bot.fetch_user(user_data["user_id"])
-            if not user:
-                continue
-            db.mark_reminder_sent(user_data["user_id"])
-            await user.send(
-                f"¡Hola {user_data['username']}! 🔥\n\n"
-                f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
-                f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
-                f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
-            )
-        except Exception as e:
-            logging.warning(f"Error sending reminder to {user_data.get('username')}: {e}")
+    try:
+        if not await asyncio.to_thread(leader.is_leader):
+            return
+        now = datetime.now(TZ_SPAIN)
+        # Ventana 10:00-10:30 con retry
+        if now.hour != TRIVIA_HOUR or now.minute < 0 or now.minute > 30:
+            return
+        
+        # Evitar enviar recordatorios duplicados el mismo día
+        today = datetime.now(TZ_SPAIN).date()
+        if getattr(streak_reminder_task, "_last_reminded_date", None) == today:
+            return
+        
+        users = await asyncio.to_thread(db.get_users_needing_reminder)
+        for user_data in users:
+            try:
+                user = await bot.fetch_user(user_data["user_id"])
+                if not user:
+                    continue
+                await asyncio.to_thread(db.mark_reminder_sent, user_data["user_id"])
+                await user.send(
+                    f"¡Hola {user_data['username']}! 🔥\n\n"
+                    f"¡Tienes una racha de **{user_data['current_streak']} días** en peligro! "
+                    f"Si no respondes la trivia de hoy, podrías perderla.\n\n"
+                    f"¡Ve a <#{ALLOWED_CHANNEL_ID}> y responde la pregunta del día para mantener tu racha! 💪"
+                )
+            except Exception as e:
+                logger.warning(f"Error sending reminder to {user_data.get('username')}: {e}")
+        
+        streak_reminder_task._last_reminded_date = datetime.now(TZ_SPAIN).date()
+    except Exception as e:
+        logger.exception("Error en streak_reminder_task: %s", e)
 
 
 @streak_reminder_task.before_loop
@@ -463,32 +597,37 @@ async def before_streak_reminder():
 
 @tasks.loop(hours=1)
 async def reset_stale_streaks_task():
-    try:
-        db.cleanup_old_used_questions()
-    except Exception as e:
-        logging.warning(f"Error cleaning up old questions: {e}")
-    broken_users = db.get_users_with_broken_streaks()
-    guild = bot.guilds[0] if bot.guilds else None
-    if not guild:
+    if not await asyncio.to_thread(leader.is_leader):
         return
-    role = guild.get_role(STREAK_ROLE_ID)
-    for user_data in broken_users:
-        try:
-            db.mark_streak_broken_notified(user_data["user_id"])
-            if role:
-                member = guild.get_member(user_data["user_id"])
-                if member and role in member.roles:
-                    await member.remove_roles(role)
-            user = await bot.fetch_user(user_data["user_id"])
-            if user:
-                await user.send(
-                    f"😢 ¡Hola {user_data['username']}!\n\n"
-                    f"Tu racha de **{user_data['old_streak']} días** se ha roto. "
-                    f"No respondiste la trivia en los últimos 2 días.\n\n"
-                    f"¡No te preocupes! Empieza de nuevo hoy. Ve a <#{ALLOWED_CHANNEL_ID}> y escribe **!trivia** para recuperarla. 💪"
-                )
-        except Exception as e:
-            logging.warning(f"Error notifying broken streak for {user_data['username']}: {e}")
+    try:
+        await asyncio.to_thread(db.cleanup_old_used_questions)
+    except Exception as e:
+        logger.warning(f"Error cleaning up old questions: {e}")
+    try:
+        broken_users = await asyncio.to_thread(db.get_users_with_broken_streaks)
+        guild = bot.guilds[0] if bot.guilds else None
+        if not guild:
+            return
+        role = guild.get_role(STREAK_ROLE_ID)
+        for user_data in broken_users:
+            try:
+                await asyncio.to_thread(db.mark_streak_broken_notified, user_data["user_id"])
+                if role:
+                    member = guild.get_member(user_data["user_id"])
+                    if member and role in member.roles:
+                        await member.remove_roles(role)
+                user = await bot.fetch_user(user_data["user_id"])
+                if user:
+                    await user.send(
+                        f"😢 ¡Hola {user_data['username']}!\n\n"
+                        f"Tu racha de **{user_data['old_streak']} días** se ha roto. "
+                        f"No respondiste la trivia en los últimos 2 días.\n\n"
+                        f"¡No te preocupes! Empieza de nuevo hoy. Ve a <#{ALLOWED_CHANNEL_ID}> y escribe **!trivia** para recuperarla. 💪"
+                    )
+            except Exception as e:
+                logger.warning(f"Error notifying broken streak for {user_data['username']}: {e}")
+    except Exception as e:
+        logger.exception("Error en reset_stale_streaks_task: %s", e)
 
 
 @reset_stale_streaks_task.before_loop
@@ -903,13 +1042,111 @@ async def ayuda_pkquest_command(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
+# Watchdog: reinicia el bot si el loop se detiene inesperadamente
+@tasks.loop(minutes=5)
+async def watchdog_task():
+    """Verifica que el bot siga conectado y los loops estén vivos."""
+    if not bot.is_ready():
+        logger.warning("Watchdog: bot no está ready, intentando reconectar...")
+        return
+    
+    # Verificar loops críticos
+    critical_tasks = [
+        ("daily_trivia_task", daily_trivia_task),
+        ("streak_reminder_task", streak_reminder_task),
+        ("reset_stale_streaks_task", reset_stale_streaks_task),
+    ]
+    
+    for name, task in critical_tasks:
+        if not task.is_running():
+            logger.error(f"Watchdog: {name} no está corriendo, reiniciando...")
+            try:
+                task.restart()
+            except Exception as e:
+                logger.exception(f"Watchdog: error reiniciando {name}: {e}")
+
+
+@watchdog_task.before_loop
+async def before_watchdog():
+    await bot.wait_until_ready()
+    # Dar tiempo a que todo arranque
+    await asyncio.sleep(60)
+
+
+# Renovación del lease de líder (failover PC <-> host gratuito)
+@tasks.loop(seconds=leader.RENEW_INTERVAL_S)
+async def lease_renew_task():
+    status = await asyncio.to_thread(leader.renew_lease)
+    if status is False:
+        # Otra instancia tomó el control: desconectar para no duplicar
+        logger.error("Lease de líder perdido (%s); desconectando", leader.INSTANCE_ID)
+        await bot.close()
+
+
+@lease_renew_task.before_loop
+async def before_lease_renew():
+    await bot.wait_until_ready()
+
+
 async def setup_hook():
-    from web_server import start_web_server
-    await start_web_server()
-    print("[OK] Web server initialized")
+    if os.getenv("ENABLE_WEB_SERVER", "") == "1" and "web_started" not in globals():
+        from web_server import start_web_server
+        await start_web_server()
+        globals()["web_started"] = True
+        print("[OK] Web server initialized")
+
+    # Cargar cogs solo una vez (setup_hook se llama en cada login/reconexión)
+    for ext in ("trivia", "reto", "verify"):
+        if ext not in bot.extensions:
+            await bot.load_extension(ext)
+
+    # Sincronizar slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"[OK] {len(synced)} slash commands sincronizados")
+    except Exception as e:
+        print(f"[WARN] Error sincronizando slash commands: {e}")
+
+    # Aplicar check de canal a todos los slash commands (solo una vez)
+    if not getattr(bot, "_slash_checks_applied", False):
+        for cmd in bot.tree.walk_commands():
+            if isinstance(cmd, app_commands.Command):
+                cmd.add_check(slash_check_channel)
+        bot._slash_checks_applied = True
+
+    # Iniciar watchdog
+    if not watchdog_task.is_running():
+        watchdog_task.start()
+
+    # Renovar lease de líder
+    if not lease_renew_task.is_running():
+        lease_renew_task.start()
 
 bot.setup_hook = setup_hook
 
 
+async def _run_with_lease():
+    """Solo conecta a Discord la instancia con lease de líder vigente."""
+    while True:
+        acquired = await asyncio.to_thread(leader.acquire_lease)
+        if not acquired:
+            logger.info(
+                "Otra instancia es líder; reintentando en %ss (%s)",
+                leader.WAIT_INTERVAL_S,
+                leader.INSTANCE_ID,
+            )
+            await asyncio.sleep(leader.WAIT_INTERVAL_S)
+            continue
+
+        logger.info("Conectando como líder (%s)", leader.INSTANCE_ID)
+        try:
+            await bot.start(DISCORD_TOKEN)
+        finally:
+            # Liberar el lease al apagarse (si nadie más lo tomó ya)
+            await asyncio.to_thread(leader.release_lease)
+        # Salida (caída o cierre): esperar y volver a intentar ser líder
+        await asyncio.sleep(leader.WAIT_INTERVAL_S)
+
+
 if __name__ == "__main__":
-    bot.run(DISCORD_TOKEN)
+    asyncio.run(_run_with_lease())

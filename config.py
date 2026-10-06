@@ -1,9 +1,18 @@
 import os
 
+try:
+    from dotenv import load_dotenv
+    _dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(_dotenv_path):
+        load_dotenv(_dotenv_path, override=False)
+except ImportError:
+    pass
+
 DISCORD_TOKEN = os.getenv("POKEBOT_TOKEN", "")
 if not DISCORD_TOKEN:
     try:
-        with open(".token", "r") as f:
+        _token_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".token")
+        with open(_token_path, "r") as f:
             DISCORD_TOKEN = f.read().strip()
     except FileNotFoundError:
         pass
@@ -46,10 +55,6 @@ TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI", "https://pokebot-1c544.we
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "UCY-yUwAx1C0ApRHWKdo8o0Q")
-
-DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1519386835514560734")
-DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "***REMOVED-OAUTH-SECRET***")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://pokebot-1c544.web.app/callback.html")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")

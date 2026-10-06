@@ -1,7 +1,6 @@
-import os
 import json
+import os
 from datetime import datetime, timedelta
-from typing import Optional
 
 import firebase_admin
 from firebase_admin import credentials, db
@@ -70,7 +69,7 @@ def init_db():
     print("[OK] Base de datos conectada: Firebase Realtime Database")
 
 
-def get_user(user_id: int) -> Optional[dict]:
+def get_user(user_id: int) -> dict | None:
     ref = _users_ref().child(str(user_id))
     data = ref.get()
     if data:
@@ -223,12 +222,14 @@ def save_weekly_quiz(questions: list, week_key: str):
     })
 
 
-def get_active_weekly_quiz() -> Optional[dict]:
+def get_active_weekly_quiz() -> dict | None:
     quizzes = _weekly_quiz_ref().get() or {}
+    latest = None
     for qid, data in quizzes.items():
         if data.get("active"):
-            return {"id": qid, **data}
-    return None
+            if latest is None or qid > latest["id"]:
+                latest = {"id": qid, **data}
+    return latest
 
 
 def save_weekly_quiz_answer(week_key: str, user_id: int, answers: list, score: int, username: str):
@@ -246,9 +247,12 @@ def get_weekly_quiz_answers(week_key: str) -> dict:
     return ref.get() or {}
 
 
-def close_weekly_quiz(week_key: str):
-    ref = _weekly_quiz_ref().child(week_key)
-    ref.update({"active": False})
+def close_all_old_weekly_quizzes(current_week_key: str):
+    ref = _weekly_quiz_ref()
+    quizzes = ref.get() or {}
+    for qid, data in quizzes.items():
+        if data.get("active") and qid != current_week_key:
+            ref.child(qid).update({"active": False})
 
 
 def get_weekly_quiz_leaderboard(week_key: str, limit: int = 10) -> list:
@@ -339,7 +343,7 @@ def get_trivia_leaderboard(limit: int = 10, week_only: bool = False) -> list:
     return lista[:limit]
 
 
-def create_reto(title: str, description: str, reward: int, days: int = 7) -> int:
+def create_reto(title: str, description: str, reward: int, days: int = 7) -> str:
     start = datetime.now().date()
     end = start + timedelta(days=days)
     ref = _retos_ref().push()
@@ -351,10 +355,10 @@ def create_reto(title: str, description: str, reward: int, days: int = 7) -> int
         "end_date": end.isoformat(),
         "active": 1,
     })
-    return int(ref.key.lstrip("-"))
+    return str(ref.key)
 
 
-def get_active_reto() -> Optional[dict]:
+def get_active_reto() -> dict | None:
     today = datetime.now().date().isoformat()
     retos = _retos_ref().get() or {}
     for rid, data in retos.items():
@@ -365,7 +369,7 @@ def get_active_reto() -> Optional[dict]:
     return None
 
 
-def complete_reto(user_id: int, reto_id: int) -> bool:
+def complete_reto(user_id: int, reto_id: int | str) -> bool:
     ref = _reto_completions_ref().child(str(reto_id)).child(str(user_id))
     if ref.get():
         return False
@@ -391,7 +395,7 @@ def save_trivia_question(question: str, correct: str, options: list):
     })
 
 
-def get_daily_trivia() -> Optional[dict]:
+def get_daily_trivia() -> dict | None:
     today = datetime.now().date().isoformat()
     trivia = _daily_ref().get() or {}
     for tid, data in trivia.items():
