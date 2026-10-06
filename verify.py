@@ -665,6 +665,30 @@ class VerifyMainView(ui.View):
             )
             return
 
+        if not HAS_OCR:
+            auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(
+                {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "redirect_uri": GOOGLE_REDIRECT_URI,
+                    "response_type": "code",
+                    "scope": "https://www.googleapis.com/auth/youtube.readonly",
+                    "prompt": "select_account",
+                }
+            )
+            embed = discord.Embed(
+                title="▶️ Verificar con YouTube",
+                description=(
+                    "**Paso 1:** Abre [este enlace de Google](" + auth_url + ") y elige tu cuenta\n\n"
+                    "**Paso 2:** Asegúrate de estar suscrito a mi canal\n\n"
+                    "**Paso 3:** En la página que se abre, copia el código de la URL "
+                    "(la parte después de `code=`) y pégalo con el botón de abajo\n\n"
+                    "El bot comprobará tu suscripción automáticamente."
+                ),
+                color=discord.Color.red(),
+            )
+            await interaction.response.send_message(embed=embed, view=YouTubeCodeView(), ephemeral=True)
+            return
+
         embed = discord.Embed(
             title="▶️ Verificar con YouTube",
             description=(
@@ -941,4 +965,5 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(Verify(bot))
     bot.add_view(VerifyMainView())
     bot.add_view(YouTubeScreenshotView())
+    bot.add_view(YouTubeCodeView())
     bot.add_view(TwitchCodeView())
