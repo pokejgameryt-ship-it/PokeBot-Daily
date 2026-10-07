@@ -29,7 +29,22 @@
         }
         html { scroll-behavior: smooth; }
         body { font-family: 'Outfit', 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
-        section { scroll-margin-top: calc(var(--header-h) + 10px); }
+        section { scroll-margin-top: calc(var(--header-h) + 10px); position: relative; }
+        ::selection { background: var(--red); color: #fff; }
+
+        /* ---------- Ambient orbs ---------- */
+        .orb { position: fixed; z-index: -1; border-radius: 50%; filter: blur(100px); opacity: .14; pointer-events: none; }
+        .orb.o1 { width: 46vmax; height: 46vmax; background: var(--red); top: -12vmax; left: -14vmax; animation: orbFloat 26s ease-in-out infinite alternate; }
+        .orb.o2 { width: 40vmax; height: 40vmax; background: #4776ff; bottom: -14vmax; right: -12vmax; animation: orbFloat 32s ease-in-out infinite alternate-reverse; }
+        @keyframes orbFloat { from { transform: translate(0,0) scale(1); } to { transform: translate(6vmax, 4vmax) scale(1.15); } }
+
+        /* ---------- Custom cursor ---------- */
+        #curDot, #curRing { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none; border-radius: 50%; opacity: 0; }
+        #curDot { width: 7px; height: 7px; background: var(--gold); }
+        #curRing { width: 36px; height: 36px; border: 2px solid rgba(233,69,96,.8); transition: width .2s, height .2s, background .2s, border-color .2s; }
+        body.cursor-on #curDot, body.cursor-on #curRing { opacity: 1; }
+        body.cursor-hover #curRing { width: 54px; height: 54px; background: rgba(233,69,96,.15); border-color: var(--gold); }
+        @media (pointer: fine) { body.cursor-on, body.cursor-on a, body.cursor-on button { cursor: none; } }
 
         /* ---------- Scroll progress ---------- */
         #progress { position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 100; background: transparent; }
@@ -46,17 +61,42 @@
             -webkit-backdrop-filter: blur(8px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             transition: background .3s, box-shadow .3s;
+            animation: introDown .7s cubic-bezier(.2,.9,.3,1.2) both;
         }
+        @keyframes introDown { from { transform: translateY(-100%); } to { transform: none; } }
         header.scrolled { background: rgba(13, 13, 24, 0.95); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); }
         .brand { display: flex; align-items: center; text-decoration: none; color: var(--text); font-weight: 900; font-size: 1.2rem; }
         .brand img { width: 38px; height: 38px; border-radius: 50%; margin-right: 10px; object-fit: cover; background: #fff; transition: transform .3s; }
         .brand:hover img { transform: rotate(-15deg) scale(1.08); }
         .brand .brand-name span { color: var(--red); }
-        nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 0.95rem; margin-left: 22px; transition: color .2s; }
+        nav { display: flex; align-items: center; }
+        nav a { position: relative; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .95rem; margin-left: 20px; padding: 6px 2px; transition: color .2s; }
         nav a:hover { color: var(--text); }
-        nav a.nav-cta { color: #fff; background: var(--red); padding: 9px 18px; border-radius: 8px; margin-left: 22px; }
+        nav a:not(.nav-cta)::after {
+            content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+            height: 2px; background: linear-gradient(90deg, var(--red), var(--gold));
+            transform: scaleX(0); transform-origin: left; transition: transform .25s;
+        }
+        nav a:not(.nav-cta):hover::after, nav a.active::after { transform: scaleX(1); }
+        nav a.active { color: var(--text); }
+        nav a.nav-cta { color: #fff; background: var(--red); padding: 9px 18px; border-radius: 8px; margin-left: 20px; }
         nav a.nav-cta:hover { filter: brightness(1.12); }
-        .nav-toggle { display: none; }
+
+        /* ---------- Buttons (ripple) ---------- */
+        .btn {
+            position: relative; overflow: hidden;
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 30px; border-radius: 10px;
+            font-weight: 700; font-size: 1.05rem;
+            text-decoration: none; color: #fff;
+            transition: transform .15s, filter .15s;
+        }
+        .btn:hover { transform: translateY(-3px); filter: brightness(1.12); }
+        .btn:active { transform: translateY(0) scale(.97); }
+        .btn-yt { background: var(--red); }
+        .btn-tw { background: #9146FF; }
+        .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.5); transform: scale(0); animation: rip .6s ease-out forwards; pointer-events: none; }
+        @keyframes rip { to { transform: scale(3.2); opacity: 0; } }
 
         /* ---------- Hero ---------- */
         .hero {
@@ -78,27 +118,24 @@
             pointer-events: none;
         }
         .hero-inner { position: relative; z-index: 3; padding: calc(var(--header-h) + 40px) 5vw 90px; will-change: transform; }
-        .hero-logo { width: clamp(90px, 16vw, 140px); border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(233,69,96,.6), 0 20px 60px rgba(0,0,0,.5); animation: bob 4s ease-in-out infinite; }
+        .hero-inner > * { animation: introUp .9s cubic-bezier(.2,.9,.3,1.15) both; }
+        .hero-inner > *:nth-child(1) { animation-delay: .15s; }
+        .hero-inner > *:nth-child(2) { animation-delay: .3s; }
+        .hero-inner > *:nth-child(3) { animation-delay: .45s; }
+        .hero-inner > *:nth-child(4) { animation-delay: .6s; }
+        @keyframes introUp { from { opacity: 0; transform: translateY(46px) scale(.96); } to { opacity: 1; transform: none; } }
+        .hero-logo { width: clamp(90px, 16vw, 140px); border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(233,69,96,.6), 0 20px 60px rgba(0,0,0,.5); animation: bob 4s ease-in-out infinite !important; }
         .hero h1 {
             margin-top: 22px;
             font-size: clamp(2.8rem, 8vw, 5rem);
             font-weight: 900; letter-spacing: -2px;
             background: linear-gradient(90deg, var(--red), var(--gold));
             -webkit-background-clip: text; background-clip: text; color: transparent;
+            background-size: 200% 100%; animation: shine 6s linear infinite;
         }
+        @keyframes shine { to { background-position: 200% 0; } }
         .hero p { color: var(--muted); font-size: clamp(1.05rem, 2.5vw, 1.35rem); max-width: 640px; margin: 16px auto 34px; }
         .hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-        .btn {
-            display: inline-flex; align-items: center; gap: 10px;
-            padding: 14px 30px; border-radius: 10px;
-            font-weight: 700; font-size: 1.05rem;
-            text-decoration: none; color: #fff;
-            transition: transform .15s, filter .15s;
-        }
-        .btn:hover { transform: translateY(-3px); filter: brightness(1.12); }
-        .btn-yt { background: var(--red); }
-        .btn-tw { background: #9146FF; }
-
         .ball {
             position: absolute; z-index: 1; opacity: .16;
             width: 90px; height: 90px; border-radius: 50%;
@@ -115,7 +152,6 @@
         .ball.b4 { bottom: 14%; right: 13%; width: 46px; height: 46px; animation-duration: 7s; animation-delay: -2s; }
         @keyframes float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-34px) rotate(20deg); } }
         @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-
         .scroll-cue {
             position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
             z-index: 4; color: var(--muted); font-size: 1.5rem;
@@ -130,22 +166,24 @@
             padding: 12px 0; font-weight: 800; font-size: 1rem;
             border-top: 1px solid rgba(255,255,255,.15); border-bottom: 1px solid rgba(0,0,0,.3);
         }
+        .ticker:hover .ticker-track { animation-play-state: paused; }
         .ticker-track { display: inline-block; animation: marquee 26s linear infinite; }
         .ticker span { margin: 0 26px; }
         .ticker i { font-style: normal; opacity: .7; }
         @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         /* ---------- Sections ---------- */
-        section { padding: 80px 5vw; max-width: 1100px; margin: 0 auto; }
+        section { padding: 84px 5vw; max-width: 1100px; margin: 0 auto; }
         h2 { font-size: clamp(1.7rem, 4vw, 2.2rem); font-weight: 900; margin-bottom: 8px; text-align: center; }
-        h2 i { color: var(--red); }
+        h2 i { color: var(--red); transition: transform .3s; display: inline-block; }
+        h2:hover i { transform: rotate(-14deg) scale(1.15); }
         .section-sub { text-align: center; color: var(--muted); margin-bottom: 36px; font-size: 1.05rem; }
-
-        .video-wrap { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+        .video-wrap { position: relative; width: 100%; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 60px rgba(0,0,0,.5); transition: transform .3s, box-shadow .3s; }
+        .video-wrap:hover { transform: translateY(-6px) scale(1.005); box-shadow: 0 34px 70px rgba(0,0,0,.6); }
         .video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
         .center { text-align: center; margin-top: 26px; }
 
-        /* ---------- Tilt cards ---------- */
+        /* ---------- Cards ---------- */
         .social-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
         .social-card {
             display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -164,10 +202,19 @@
         .c-yt i { color: #ff0033; } .c-tw i { color: #9146FF; }
         .c-tt i { color: #fff; } .c-x i { color: #fff; } .c-dc i { color: #5865F2; }
 
-        /* ---------- Why ---------- */
         .why { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-        .why-card { background: var(--bg-soft); border-radius: 16px; padding: 26px 20px; border: 1px solid rgba(255,255,255,.07); transition: transform .2s, border-color .2s; }
-        .why-card:hover { transform: translateY(-6px); border-color: rgba(255,203,5,.4); }
+        .why-card { position: relative; background: var(--bg-soft); border-radius: 16px; padding: 26px 20px; border: 1px solid rgba(255,255,255,.07); transition: transform .2s, border-color .2s; overflow: hidden; }
+        .why-card::before {
+            content: ''; position: absolute; inset: -2px;
+            background: conic-gradient(from var(--ang, 0deg), transparent 0 70%, var(--gold) 85%, transparent 100%);
+            opacity: 0; transition: opacity .3s; z-index: 0;
+            animation: spinAng 4s linear infinite;
+        }
+        .why-card:hover::before { opacity: .55; }
+        .why-card:hover { transform: translateY(-6px); }
+        @property --ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+        @keyframes spinAng { to { --ang: 360deg; } }
+        .why-card > * { position: relative; z-index: 1; }
         .why-card i { font-size: 1.7rem; color: var(--gold); margin-bottom: 12px; display: inline-block; transition: transform .3s; }
         .why-card:hover i { transform: rotate(-12deg) scale(1.2); }
         .why-card h3 { font-size: 1.1rem; margin-bottom: 6px; }
@@ -180,20 +227,29 @@
             border-radius: 20px; padding: 34px clamp(18px, 4vw, 44px);
             display: grid; grid-template-columns: minmax(180px, 300px) 1fr; gap: 30px; align-items: center;
             box-shadow: 0 24px 60px rgba(0,0,0,.45);
+            transition: border-color .4s, box-shadow .4s;
         }
+        .pokedex-box.shiny { border-color: rgba(255,203,5,.7); box-shadow: 0 24px 70px rgba(255,203,5,.22); }
         .pk-art { position: relative; text-align: center; }
         .pk-art img { width: 100%; max-width: 250px; filter: drop-shadow(0 16px 24px rgba(0,0,0,.5)); animation: bob 3.5s ease-in-out infinite; }
         .pk-art .pk-num { position: absolute; top: 0; left: 0; background: var(--red); font-weight: 800; padding: 4px 12px; border-radius: 8px; font-size: .9rem; }
+        .pk-art .pk-shiny { position: absolute; top: 0; right: 0; background: var(--gold); color: #111; font-weight: 900; padding: 4px 12px; border-radius: 8px; font-size: .85rem; display: none; }
+        .pokedex-box.shiny .pk-shiny { display: block; animation: pop .5s cubic-bezier(.2,.9,.3,1.4); }
+        @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
         .pk-name { font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 900; margin-bottom: 8px; text-transform: capitalize; }
-        .pk-types { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+        .pk-types { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
         .pk-types span { padding: 5px 14px; border-radius: 999px; font-size: .82rem; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: .5px; }
+        .pk-flavor { color: var(--muted); font-size: .92rem; line-height: 1.5; margin-bottom: 14px; min-height: 42px; font-style: italic; }
+        .pk-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .pk-meta span { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); padding: 4px 12px; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--muted); }
         .stat { display: grid; grid-template-columns: 90px 1fr 44px; gap: 10px; align-items: center; margin-bottom: 9px; font-size: .88rem; }
         .stat .lbl { color: var(--muted); font-weight: 600; }
         .stat .track { height: 9px; background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden; }
         .stat .fill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--red), var(--gold)); transition: width 1s cubic-bezier(.2,.8,.2,1); }
         .stat .val { font-weight: 800; text-align: right; }
-        .pk-controls { grid-column: 1 / -1; text-align: center; }
+        .pk-controls { grid-column: 1 / -1; text-align: center; display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
         .pk-btn {
+            position: relative; overflow: hidden;
             background: linear-gradient(90deg, var(--red), #ff6b81);
             color: #fff; border: 0; cursor: pointer;
             font-family: inherit; font-weight: 800; font-size: 1.05rem;
@@ -204,49 +260,128 @@
         }
         .pk-btn:hover { transform: translateY(-3px); filter: brightness(1.1); }
         .pk-btn:disabled { opacity: .6; cursor: wait; transform: none; }
-        .pk-loading { display: none; margin-left: 14px; color: var(--muted); font-weight: 600; }
+        .pk-btn.ghost { background: rgba(255,255,255,.08); box-shadow: none; border: 1px solid rgba(255,255,255,.15); }
+        .pk-loading { display: none; color: var(--muted); font-weight: 600; }
         .pk-loading.on { display: inline-block; }
         .pk-loading i { animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .pk-history { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; min-height: 44px; align-items: center; }
+        .pk-history:empty::after { content: 'Tu historial aparecerá aquí'; color: var(--muted); font-size: .85rem; }
+        .pk-history img { width: 44px; height: 44px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 2px; transition: transform .2s, border-color .2s; }
+        .pk-history img:hover { transform: translateY(-4px) scale(1.12); border-color: var(--gold); }
+
+        /* ---------- Quiz ---------- */
+        .quiz-box {
+            background: linear-gradient(160deg, #1b1b32, #12121f);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 20px; padding: 34px clamp(18px, 4vw, 44px);
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0,0,0,.45);
+        }
+        .quiz-sprite {
+            width: clamp(160px, 30vw, 230px); height: clamp(160px, 30vw, 230px);
+            margin: 6px auto 18px;
+            background: radial-gradient(circle at 50% 35%, #26264a, #14141f 70%);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px dashed rgba(255,255,255,.15);
+            position: relative; overflow: hidden;
+        }
+        .quiz-sprite img { width: 78%; transition: filter .6s, transform .5s; }
+        .quiz-sprite.silhouette img { filter: brightness(0) drop-shadow(0 0 0 #000); }
+        .quiz-sprite.revealed img { animation: pop .5s cubic-bezier(.2,.9,.3,1.4); }
+        .quiz-score { display: flex; gap: 14px; justify-content: center; margin-bottom: 18px; font-weight: 800; color: var(--muted); }
+        .quiz-score b { color: var(--gold); }
+        .quiz-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; max-width: 720px; margin: 0 auto; }
+        .quiz-opt {
+            position: relative; overflow: hidden;
+            background: rgba(255,255,255,.06); color: var(--text);
+            border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+            padding: 14px 10px; font-family: inherit; font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: transform .15s, background .2s, border-color .2s;
+            text-transform: capitalize;
+        }
+        .quiz-opt:hover:not(:disabled) { transform: translateY(-3px); background: rgba(255,255,255,.11); border-color: var(--gold); }
+        .quiz-opt:disabled { cursor: default; }
+        .quiz-opt.correct { background: rgba(76, 217, 100, .22); border-color: #4cd964; animation: pop .4s; }
+        .quiz-opt.wrong { background: rgba(233, 69, 96, .22); border-color: var(--red); animation: shake .4s; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+        .quiz-msg { min-height: 28px; margin-top: 16px; font-weight: 800; }
+        .quiz-msg.ok { color: #4cd964; }
+        .quiz-msg.bad { color: var(--red); }
+        .quiz-next { margin-top: 6px; }
 
         /* ---------- Reveal on scroll ---------- */
         .reveal { opacity: 0; transform: translateY(34px); transition: opacity .8s ease, transform .8s ease; transition-delay: var(--d, 0s); }
+        .reveal.rv-left { transform: translateX(-46px); }
+        .reveal.rv-right { transform: translateX(46px); }
+        .reveal.rv-zoom { transform: scale(.88); }
         .reveal.in { opacity: 1; transform: none; }
 
         /* ---------- Footer / to-top ---------- */
         footer { border-top: 1px solid rgba(255,255,255,.07); padding: 34px 5vw; text-align: center; color: var(--muted); font-size: .92rem; }
-        footer a { color: var(--muted); text-decoration: underline; }
+        footer a { color: var(--muted); text-decoration: underline; transition: color .2s; }
         footer a:hover { color: var(--text); }
         footer .brand-mini { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; font-weight: 800; color: var(--text); font-size: 1.05rem; }
         footer .brand-mini img { width: 26px; height: 26px; border-radius: 50%; background: #fff; }
+        .footer-socials { display: flex; gap: 16px; justify-content: center; margin: 12px 0; }
+        .footer-socials a { font-size: 1.3rem; text-decoration: none; transition: transform .2s, color .2s; display: inline-block; }
+        .footer-socials a:hover { transform: translateY(-4px) scale(1.2); color: var(--gold); }
         #toTop {
             position: fixed; right: 22px; bottom: 22px; z-index: 80;
             width: 48px; height: 48px; border-radius: 50%;
             background: var(--red); color: #fff; border: 0; cursor: pointer;
             font-size: 1.2rem; opacity: 0; pointer-events: none; transform: translateY(16px);
-            transition: opacity .3s, transform .3s;
+            transition: opacity .3s, transform .3s, filter .2s;
             box-shadow: 0 10px 26px rgba(233,69,96,.4);
         }
         #toTop.on { opacity: 1; pointer-events: auto; transform: none; }
-        #toTop:hover { filter: brightness(1.15); }
+        #toTop:hover { filter: brightness(1.15); transform: translateY(-4px); }
+
+        /* ---------- Confetti / Konami ---------- */
+        .confetti { position: fixed; z-index: 9998; width: 10px; height: 14px; top: -20px; pointer-events: none; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: .2; } }
+        #konamiToast {
+            position: fixed; left: 50%; bottom: 40px; transform: translate(-50%, 140%);
+            z-index: 9997; background: linear-gradient(90deg, var(--red), var(--gold)); color: #111;
+            font-weight: 900; padding: 14px 28px; border-radius: 999px;
+            box-shadow: 0 14px 40px rgba(0,0,0,.5); transition: transform .5s cubic-bezier(.2,.9,.3,1.4);
+        }
+        #konamiToast.on { transform: translate(-50%, 0); }
+
+        /* ---------- Toast ---------- */
+        #toast {
+            position: fixed; left: 50%; top: 90px; transform: translate(-50%, -200%);
+            z-index: 9997; background: var(--bg-soft); color: var(--text);
+            border: 1px solid rgba(255,255,255,.15);
+            font-weight: 700; padding: 12px 24px; border-radius: 999px;
+            transition: transform .45s cubic-bezier(.2,.9,.3,1.4); box-shadow: 0 14px 40px rgba(0,0,0,.5);
+        }
+        #toast.on { transform: translate(-50%, 0); }
 
         @media (max-width: 760px) {
             nav a:not(.nav-cta) { display: none; }
             .pokedex-box { grid-template-columns: 1fr; text-align: center; }
             .pk-art { margin: 0 auto; }
-            .pk-types { justify-content: center; }
+            .pk-types, .pk-meta { justify-content: center; }
             .stat { grid-template-columns: 76px 1fr 40px; }
             .ball { display: none; }
+            #curDot, #curRing { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
             .reveal { opacity: 1; transform: none; transition: none; }
-            .ticker-track, .ball, .hero-logo, .pk-art img, .scroll-cue { animation: none !important; }
+            .ticker-track, .ball, .hero-logo, .pk-art img, .scroll-cue, .orb,
+            .hero-inner > *, header, .hero h1 { animation: none !important; }
         }
     </style>
 </head>
 <body>
 
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div id="curRing"></div>
+<div id="curDot"></div>
 <div id="progress"><i id="progressBar"></i></div>
 
 <header id="header">
@@ -258,6 +393,7 @@
         <a href="#videos">Vídeos</a>
         <a href="#directo">Directo</a>
         <a href="#pokedex">Pokédex</a>
+        <a href="#quiz">¿Quién es?</a>
         <a href="#redes">Redes</a>
         <a href="https://youtube.com/@pokejgamer" class="nav-cta">Suscríbete</a>
     </nav>
@@ -296,12 +432,12 @@
 </div>
 
 <section id="videos">
-    <h2 class="reveal"><i class="fa-solid fa-play"></i> Últimos vídeos</h2>
-    <p class="section-sub reveal" style="--d:.1s">Lo más reciente del canal, directamente aquí.</p>
-    <div class="video-wrap reveal" style="--d:.2s">
+    <h2 class="reveal"><i class="fa-solid fa-star"></i> Vídeos destacados</h2>
+    <p class="section-sub reveal" style="--d:.1s">Los mejores momentos del canal, seleccionados para ti.</p>
+    <div class="video-wrap reveal rv-zoom" style="--d:.2s">
         <iframe
             src="https://www.youtube.com/embed/videoseries?list=PLoSV-IQX3YvD2DOE0gDq-OUT6ruOKUUV7"
-            title="Vídeos de PokeJGamer"
+            title="Vídeos destacados de PokeJGamer"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen loading="lazy"></iframe>
     </div>
@@ -311,9 +447,9 @@
 </section>
 
 <section id="directo">
-    <h2 class="reveal"><i class="fa-solid fa-tower-broadcast"></i> Directo en Twitch</h2>
-    <p class="section-sub reveal" style="--d:.1s">Aquí se para todo cuando estoy en directo. Sígueme para no perdértelo.</p>
-    <div class="video-wrap reveal" style="--d:.2s">
+    <h2 class="reveal rv-right"><i class="fa-solid fa-tower-broadcast"></i> Directo en Twitch</h2>
+    <p class="section-sub reveal rv-right" style="--d:.1s">Aquí se para todo cuando estoy en directo. Sígueme para no perdértelo.</p>
+    <div class="video-wrap reveal rv-zoom" style="--d:.2s">
         <iframe
             src="https://player.twitch.tv/?channel=pokejgamer&parent=pokejgamer.com&parent=pokebot-1c544.web.app"
             title="Directo de PokeJGamer en Twitch"
@@ -322,16 +458,19 @@
 </section>
 
 <section id="pokedex">
-    <h2 class="reveal"><i class="fa-solid fa-magnifying-glass"></i> Pokédex interactiva</h2>
-    <p class="section-sub reveal" style="--d:.1s">¿Aburrido mientras espero el próximo directo? Sacó un Pokémon al azar.</p>
-    <div class="pokedex-box reveal" style="--d:.2s">
+    <h2 class="reveal rv-left"><i class="fa-solid fa-magnifying-glass"></i> Pokédex interactiva</h2>
+    <p class="section-sub reveal rv-left" style="--d:.1s">Saca un Pokémon al azar: datos reales, nombre en español y stats animadas.</p>
+    <div class="pokedex-box reveal rv-zoom" style="--d:.2s" id="pkBox">
         <div class="pk-art">
-            <span class="pk-num" id="pkNum">#???</span>
+            <span class="pk-num" id="pkNum">#025</span>
+            <span class="pk-shiny">✨ Variocolor</span>
             <img id="pkImg" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png" alt="Pokémon">
         </div>
         <div class="pk-info">
             <div class="pk-name" id="pkName">Pikachu</div>
-            <div class="pk-types" id="pkTypes"><span style="background:#f4d53c">Eléctrico</span></div>
+            <div class="pk-types" id="pkTypes"><span style="background:#f8d030">Eléctrico</span></div>
+            <div class="pk-flavor" id="pkFlavor">Cuando varios de estos Pokémon se reúnen, su electricidad puede causar tormentas relampago.</div>
+            <div class="pk-meta" id="pkMeta"><span id="pkGen">Gen. I</span><span id="pkBst">PS total: 320</span></div>
             <div class="stat"><span class="lbl">HP</span><div class="track"><div class="fill" id="st-hp"></div></div><span class="val" id="v-hp">35</span></div>
             <div class="stat"><span class="lbl">Ataque</span><div class="track"><div class="fill" id="st-atk"></div></div><span class="val" id="v-atk">55</span></div>
             <div class="stat"><span class="lbl">Defensa</span><div class="track"><div class="fill" id="st-def"></div></div><span class="val" id="v-def">40</span></div>
@@ -341,14 +480,34 @@
         </div>
         <div class="pk-controls">
             <button class="pk-btn" id="pkBtn"><i class="fa-solid fa-dice"></i> Pokémon al azar</button>
+            <button class="pk-btn ghost" id="pkCry" title="Escuchar su grito"><i class="fa-solid fa-volume-high"></i> Grito</button>
             <span class="pk-loading" id="pkLoading"><i class="fa-solid fa-arrows-rotate"></i> Buscando…</span>
         </div>
+        <div class="pk-history" id="pkHistory"></div>
+    </div>
+</section>
+
+<section id="quiz">
+    <h2 class="reveal"><i class="fa-solid fa-question"></i> ¿Quién es este Pokémon?</h2>
+    <p class="section-sub reveal" style="--d:.1s">Pon a prueba tu ojo de entrenador. ¡Cuanto más aciertes, mejor!</p>
+    <div class="quiz-box reveal rv-zoom" style="--d:.2s">
+        <div class="quiz-score">
+            <span>✅ Aciertos: <b id="qScore">0</b></span>
+            <span>🔥 Racha: <b id="qStreak">0</b></span>
+            <span>🎯 Rondas: <b id="qRounds">0</b></span>
+        </div>
+        <div class="quiz-sprite silhouette" id="qSprite">
+            <img id="qImg" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png" alt="¿Quién es?">
+        </div>
+        <div class="quiz-options" id="qOptions"></div>
+        <div class="quiz-msg" id="qMsg"></div>
+        <div class="quiz-next"><button class="pk-btn quiz-next" id="qNext" style="display:none"><i class="fa-solid fa-forward"></i> Siguiente</button></div>
     </div>
 </section>
 
 <section id="redes">
-    <h2 class="reveal"><i class="fa-solid fa-heart"></i> Sígueme en todas las redes</h2>
-    <p class="section-sub reveal" style="--d:.1s">Elige tu plataforma favorita.</p>
+    <h2 class="reveal rv-right"><i class="fa-solid fa-heart"></i> Sígueme en todas las redes</h2>
+    <p class="section-sub reveal rv-right" style="--d:.1s">Elige tu plataforma favorita.</p>
     <div class="social-grid">
         <a class="social-card c-yt reveal" style="--d:.05s" data-tilt href="https://youtube.com/@pokejgamer">
             <i class="fa-brands fa-youtube"></i><span class="name">YouTube</span><span class="handle">@pokejgamer</span>
@@ -369,8 +528,8 @@
 </section>
 
 <section>
-    <h2 class="reveal"><i class="fa-solid fa-star"></i> ¿Por qué suscribirte?</h2>
-    <p class="section-sub reveal" style="--d:.1s">Todo lo que pasa en el canal, en un solo lugar.</p>
+    <h2 class="reveal rv-left"><i class="fa-solid fa-star"></i> ¿Por qué suscribirte?</h2>
+    <p class="section-sub reveal rv-left" style="--d:.1s">Todo lo que pasa en el canal, en un solo lugar.</p>
     <div class="why">
         <div class="why-card reveal" style="--d:.05s">
             <i class="fa-solid fa-dice-d20"></i>
@@ -397,22 +556,32 @@
 
 <footer>
     <span class="brand-mini"><img src="/logo.png" alt=""> PokeJGamer</span>
+    <div class="footer-socials">
+        <a href="https://youtube.com/@pokejgamer" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+        <a href="https://twitch.tv/pokejgamer" aria-label="Twitch"><i class="fa-brands fa-twitch"></i></a>
+        <a href="https://www.tiktok.com/@pokejgamer" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+        <a href="https://x.com/p0kejgamer" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+        <a href="https://discord.gg/pokejgamer" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
+    </div>
     <a href="/privacy.html">Política de Privacidad</a> · <a href="/terms.html">Términos de Servicio</a>
     <div style="margin-top:8px">© 2026 PokeJGamer</div>
 </footer>
 
 <button id="toTop" aria-label="Volver arriba"><i class="fa-solid fa-arrow-up"></i></button>
+<div id="toast"></div>
+<div id="konamiToast">🎉 ¡Código trampa activado! ¡Modo legendario!</div>
 
 <script>
 (function () {
+    'use strict';
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    /* Scroll progress + header state + to-top */
+    /* ================= Scroll: progress, header, parallax, to-top ================= */
     var bar = document.getElementById('progressBar');
     var header = document.getElementById('header');
     var toTop = document.getElementById('toTop');
     var hero = document.getElementById('heroInner');
-    var balls = document.querySelectorAll('.ball');
+    var balls = document.querySelectorAll('.hero .ball');
 
     function onScroll() {
         var y = window.scrollY;
@@ -429,10 +598,28 @@
     }
     window.addEventListener('scroll', function () { window.requestAnimationFrame(onScroll); }, { passive: true });
     onScroll();
-
     toTop.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); });
 
-    /* Hero cursor spotlight */
+    /* ================= Custom cursor ================= */
+    if (window.matchMedia('(pointer: fine)').matches && !reduce) {
+        var dot = document.getElementById('curDot'), ring = document.getElementById('curRing');
+        var mx = -100, my = -100, rx = -100, ry = -100, curOn = false;
+        document.addEventListener('mousemove', function (e) {
+            mx = e.clientX; my = e.clientY;
+            if (!curOn) { curOn = true; document.body.classList.add('cursor-on'); rx = mx; ry = my; }
+            dot.style.transform = 'translate(' + (mx - 3.5) + 'px,' + (my - 3.5) + 'px)';
+        });
+        (function loop() {
+            rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16;
+            ring.style.transform = 'translate(' + (rx - 18) + 'px,' + (ry - 18) + 'px)';
+            requestAnimationFrame(loop);
+        })();
+        document.addEventListener('mouseover', function (e) {
+            document.body.classList.toggle('cursor-hover', !!e.target.closest('a,button,[data-tilt]'));
+        });
+    }
+
+    /* ================= Hero spotlight ================= */
     if (!reduce && window.matchMedia('(pointer: fine)').matches) {
         document.getElementById('hero').addEventListener('mousemove', function (e) {
             var r = this.getBoundingClientRect();
@@ -441,7 +628,7 @@
         });
     }
 
-    /* Reveal on scroll */
+    /* ================= Reveal + active nav ================= */
     var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (en) {
             if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
@@ -449,7 +636,36 @@
     }, { threshold: 0.15 });
     document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
 
-    /* 3D tilt on social cards */
+    var navLinks = {};
+    document.querySelectorAll('nav a[href^="#"]').forEach(function (a) { navLinks[a.getAttribute('href').slice(1)] = a; });
+    var navIo = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            var link = navLinks[en.target.id];
+            if (!link) return;
+            if (en.isIntersecting) {
+                Object.keys(navLinks).forEach(function (k) { navLinks[k].classList.remove('active'); });
+                link.classList.add('active');
+            }
+        });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    document.querySelectorAll('section[id]').forEach(function (s) { navIo.observe(s); });
+
+    /* ================= Ripple on buttons ================= */
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest('.btn, .pk-btn, .nav-cta');
+        if (!t || reduce) return;
+        var r = t.getBoundingClientRect();
+        var s = document.createElement('span');
+        s.className = 'ripple';
+        var size = Math.max(r.width, r.height);
+        s.style.width = s.style.height = size + 'px';
+        s.style.left = (e.clientX - r.left - size / 2) + 'px';
+        s.style.top = (e.clientY - r.top - size / 2) + 'px';
+        t.appendChild(s);
+        setTimeout(function () { s.remove(); }, 650);
+    });
+
+    /* ================= 3D tilt on social cards ================= */
     if (!reduce && window.matchMedia('(pointer: fine)').matches) {
         document.querySelectorAll('[data-tilt]').forEach(function (card) {
             card.addEventListener('mousemove', function (e) {
@@ -462,7 +678,32 @@
         });
     }
 
-    /* ---------- Pokédex ---------- */
+    /* ================= Utils: toast + confetti ================= */
+    var toastEl = document.getElementById('toast'), toastTimer;
+    function toast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('on');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2400);
+    }
+    var CONF_COLORS = ['#e94560', '#ffcb05', '#5865F2', '#9146FF', '#4cd964', '#fff'];
+    function confetti(n) {
+        if (reduce) return;
+        for (var i = 0; i < (n || 60); i++) {
+            var c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.left = Math.random() * 100 + 'vw';
+            c.style.background = CONF_COLORS[i % CONF_COLORS.length];
+            c.style.animationDuration = (1.6 + Math.random() * 1.6) + 's';
+            c.style.animationDelay = (Math.random() * 0.4) + 's';
+            c.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
+            if (Math.random() > 0.5) c.style.borderRadius = '50%';
+            document.body.appendChild(c);
+            (function (el) { setTimeout(function () { el.remove(); }, 4000); })(c);
+        }
+    }
+
+    /* ================= Pokédex ================= */
     var TYPE_ES = {
         normal: ['Normal', '#a8a878'], fire: ['Fuego', '#f08030'], water: ['Agua', '#6890f0'],
         electric: ['Eléctrico', '#f8d030'], grass: ['Planta', '#78c850'], ice: ['Hielo', '#98d8d8'],
@@ -472,9 +713,14 @@
         steel: ['Acero', '#b8b8d0'], fairy: ['Hada', '#ee99ac']
     };
     var STAT_ES = { hp: 'hp', attack: 'atk', defense: 'def', 'special-attack': 'spa', 'special-defense': 'spd', speed: 'spe' };
-    var STAT_KEYS = ['hp', 'attack', 'defense', 'special-attack', 'special-defense', 'speed'];
+    var GEN_ES = { 'generation-i': 'Gen. I', 'generation-ii': 'Gen. II', 'generation-iii': 'Gen. III', 'generation-iv': 'Gen. IV', 'generation-v': 'Gen. V', 'generation-vi': 'Gen. VI', 'generation-vii': 'Gen. VII', 'generation-viii': 'Gen. VIII', 'generation-ix': 'Gen. IX' };
     var btn = document.getElementById('pkBtn');
+    var cryBtn = document.getElementById('pkCry');
     var loading = document.getElementById('pkLoading');
+    var pkBox = document.getElementById('pkBox');
+    var pkHistory = document.getElementById('pkHistory');
+    var currentCry = null;
+    var historyIds = [];
 
     function animateVal(el, target) {
         if (reduce) { el.textContent = target; return; }
@@ -488,10 +734,27 @@
         requestAnimationFrame(step);
     }
 
-    function render(data, esName) {
+    function addHistory(data, esName) {
+        if (historyIds.indexOf(data.id) !== -1) return;
+        historyIds.unshift(data.id);
+        if (historyIds.length > 10) historyIds.pop();
+        pkHistory.innerHTML = '';
+        historyIds.forEach(function (id) {
+            var img = document.createElement('img');
+            img.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + id + '.png';
+            img.alt = '#' + id;
+            img.title = 'Volver a ver #' + id;
+            img.addEventListener('click', function () { loadPokemon(id); });
+            pkHistory.appendChild(img);
+        });
+    }
+
+    function render(data, esName, flavor, gen, shiny) {
         document.getElementById('pkNum').textContent = '#' + String(data.id).padStart(3, '0');
-        document.getElementById('pkImg').src = (data.sprites.other['official-artwork'] || {}).front_default || data.sprites.front_default;
+        var art = data.sprites.other['official-artwork'] || {};
+        document.getElementById('pkImg').src = (shiny && art.shiny && art.shiny.default) || art.front_default || data.sprites.front_default;
         document.getElementById('pkName').textContent = esName || data.name;
+        pkBox.classList.toggle('shiny', !!shiny);
 
         var tw = document.getElementById('pkTypes');
         tw.innerHTML = '';
@@ -503,18 +766,25 @@
             tw.appendChild(s);
         });
 
+        document.getElementById('pkFlavor').textContent = flavor || '';
+        document.getElementById('pkGen').textContent = GEN_ES[gen] || 'Pokédex';
+        var bst = data.stats.reduce(function (a, st) { return a + st.base_stat; }, 0);
+        document.getElementById('pkBst').textContent = 'PS total: ' + bst;
+
         data.stats.forEach(function (st) {
             var key = STAT_ES[st.stat.name];
-            var pct = Math.min(st.base_stat / 180 * 100, 100);
-            document.getElementById('st-' + key).style.width = pct + '%';
+            document.getElementById('st-' + key).style.width = Math.min(st.base_stat / 180 * 100, 100) + '%';
             animateVal(document.getElementById('v-' + key), st.base_stat);
         });
+
+        currentCry = data.id;
+        addHistory(data, esName);
     }
 
-    btn.addEventListener('click', function () {
+    function loadPokemon(id) {
         btn.disabled = true;
         loading.classList.add('on');
-        var id = Math.floor(Math.random() * 1025) + 1;
+        var shiny = Math.random() < 0.08;
         fetch('https://pokeapi.co/api/v2/pokemon/' + id)
             .then(function (r) { if (!r.ok) throw 0; return r.json(); })
             .then(function (data) {
@@ -522,21 +792,166 @@
                     .then(function (r) { return r.ok ? r.json() : null; })
                     .catch(function () { return null; })
                     .then(function (sp) {
-                        var es = null;
-                        if (sp && sp.names) {
-                            sp.names.forEach(function (n) { if (n.language.name === 'es') es = n.name; });
+                        var es = null, flavor = '', gen = '';
+                        if (sp) {
+                            gen = (sp.generation && sp.generation.name) || '';
+                            (sp.names || []).forEach(function (n) { if (n.language.name === 'es') es = n.name; });
+                            var f = (sp.flavor_text_entries || []).find(function (e) { return e.language.name === 'es'; });
+                            if (f) flavor = f.flavor_text.replace(/[\n\f\u000c]/g, ' ');
                         }
-                        render(data, es);
+                        render(data, es, flavor, gen, shiny);
+                        if (shiny) { confetti(30); toast('✨ ¡Pokémon variocolor!'); }
                     });
             })
-            .catch(function () {
-                document.getElementById('pkName').textContent = 'Error de conexión…';
-            })
-            .finally(function () {
-                btn.disabled = false;
-                loading.classList.remove('on');
-            });
+            .catch(function () { document.getElementById('pkName').textContent = 'Error de conexión…'; })
+            .finally(function () { btn.disabled = false; loading.classList.remove('on'); });
+    }
+
+    btn.addEventListener('click', function () { loadPokemon(Math.floor(Math.random() * 1025) + 1); });
+    cryBtn.addEventListener('click', function () {
+        if (!currentCry) return;
+        try {
+            var a = new Audio('https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/' + currentCry + '.ogg');
+            a.volume = 0.7;
+            a.play().catch(function () { toast('No se pudo reproducir el grito'); });
+        } catch (e) { toast('No se pudo reproducir el grito'); }
     });
+
+    /* ================= Quiz: ¿Quién es este Pokémon? ================= */
+    var qScore = 0, qStreak = 0, qRounds = 0, qAnswer = null, qBusy = false;
+    var qImg = document.getElementById('qImg');
+    var qSprite = document.getElementById('qSprite');
+    var qOptions = document.getElementById('qOptions');
+    var qMsg = document.getElementById('qMsg');
+    var qNext = document.getElementById('qNext');
+
+    function esNameOf(sp) {
+        var es = null;
+        (sp.names || []).forEach(function (n) { if (n.language.name === 'es') es = n.name; });
+        return es || sp.name;
+    }
+
+    function qRound() {
+        qBusy = true;
+        qNext.style.display = 'none';
+        qMsg.textContent = '';
+        qMsg.className = 'quiz-msg';
+        qSprite.classList.add('silhouette');
+        qSprite.classList.remove('revealed');
+        qOptions.innerHTML = '';
+        qOptions.style.opacity = '.5';
+
+        var ids = [];
+        while (ids.length < 4) {
+            var id = Math.floor(Math.random() * 1025) + 1;
+            if (ids.indexOf(id) === -1) ids.push(id);
+        }
+        qAnswer = ids[0];
+
+        Promise.all(ids.map(function (id) {
+            return fetch('https://pokeapi.co/api/v2/pokemon-species/' + id)
+                .then(function (r) { return r.json(); })
+                .then(function (sp) { return { id: id, name: esNameOf(sp) }; });
+        })).then(function (list) {
+            qImg.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + qAnswer + '.png';
+            var opts = list.slice().sort(function () { return Math.random() - 0.5; });
+            opts.forEach(function (o) {
+                var b = document.createElement('button');
+                b.className = 'quiz-opt';
+                b.textContent = o.name;
+                b.dataset.id = o.id;
+                b.addEventListener('click', function () { qPick(o.id, b); });
+                qOptions.appendChild(b);
+            });
+            qOptions.style.opacity = '1';
+            qBusy = false;
+        }).catch(function () {
+            qMsg.textContent = 'Error de conexión…';
+            qMsg.className = 'quiz-msg bad';
+            qNext.style.display = '';
+            qBusy = false;
+        });
+    }
+
+    function qPick(id, el) {
+        if (qBusy) return;
+        qBusy = true;
+        qRounds++;
+        var buttons = qOptions.querySelectorAll('button');
+        buttons.forEach(function (b) { b.disabled = true; });
+        qSprite.classList.remove('silhouette');
+        qSprite.classList.add('revealed');
+
+        if (id === qAnswer) {
+            el.classList.add('correct');
+            qScore++; qStreak++;
+            qMsg.textContent = '¡Correcto! 🎉';
+            qMsg.className = 'quiz-msg ok';
+            confetti(40);
+        } else {
+            el.classList.add('wrong');
+            buttons.forEach(function (b) { if (Number(b.dataset.id) === qAnswer) b.classList.add('correct'); });
+            qStreak = 0;
+            qMsg.textContent = '¡Fallado! Era ' + correctName() + '…';
+            qMsg.className = 'quiz-msg bad';
+        }
+        document.getElementById('qScore').textContent = qScore;
+        document.getElementById('qStreak').textContent = qStreak;
+        document.getElementById('qRounds').textContent = qRounds;
+        qNext.style.display = '';
+        qBusy = false;
+    }
+
+    function correctName() {
+        var name = '';
+        qOptions.querySelectorAll('button').forEach(function (b) {
+            if (Number(b.dataset.id) === qAnswer) name = b.textContent;
+        });
+        return name;
+    }
+
+    qNext.addEventListener('click', qRound);
+    qImg.alt = '¿Quién es?';
+
+    /* ================= Konami code ================= */
+    var seq = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    var pos = 0;
+    document.addEventListener('keydown', function (e) {
+        var k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        if (k === seq[pos]) {
+            pos++;
+            if (pos === seq.length) {
+                pos = 0;
+                confetti(140);
+                var t = document.getElementById('konamiToast');
+                t.classList.add('on');
+                setTimeout(function () { t.classList.remove('on'); }, 3200);
+            }
+        } else { pos = (k === seq[0]) ? 1 : 0; }
+    });
+
+    /* ================= Footer socials bounce ================= */
+    document.querySelectorAll('.footer-socials a').forEach(function (a, i) {
+        a.addEventListener('mouseenter', function () {
+            if (reduce) return;
+            a.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }], { duration: 400, delay: i * 30 });
+        });
+    });
+
+    /* ================= Welcome toast (first visit) ================= */
+    try {
+        if (!localStorage.getItem('pj_seen')) {
+            setTimeout(function () { toast('👋 ¡Bienvenido! Prueba la Pokédex y el quiz 👇'); }, 1400);
+            localStorage.setItem('pj_seen', '1');
+        }
+    } catch (e) { /* private mode */ }
+
+    /* Start quiz when it enters viewport (saves requests) */
+    var quizIo = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) { qRound(); quizIo.disconnect(); }
+    }, { threshold: 0.3 });
+    quizIo.observe(document.getElementById('quiz'));
+
 })();
 </script>
 
