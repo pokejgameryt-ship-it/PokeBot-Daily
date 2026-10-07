@@ -33,17 +33,17 @@
         ::selection { background: var(--red); color: #fff; }
 
         /* ---------- Ambient orbs ---------- */
-        .orb { position: fixed; z-index: -1; border-radius: 50%; filter: blur(100px); opacity: .14; pointer-events: none; }
-        .orb.o1 { width: 46vmax; height: 46vmax; background: var(--red); top: -12vmax; left: -14vmax; animation: orbFloat 26s ease-in-out infinite alternate; }
-        .orb.o2 { width: 40vmax; height: 40vmax; background: #4776ff; bottom: -14vmax; right: -12vmax; animation: orbFloat 32s ease-in-out infinite alternate-reverse; }
+        .orb { position: fixed; z-index: -1; border-radius: 50%; opacity: .5; pointer-events: none; }
+        .orb.o1 { width: 46vmax; height: 46vmax; background: radial-gradient(circle, rgba(233,69,96,.55), transparent 68%); top: -12vmax; left: -14vmax; animation: orbFloat 26s ease-in-out infinite alternate; }
+        .orb.o2 { width: 40vmax; height: 40vmax; background: radial-gradient(circle, rgba(71,118,255,.5), transparent 68%); bottom: -14vmax; right: -12vmax; animation: orbFloat 32s ease-in-out infinite alternate-reverse; }
         @keyframes orbFloat { from { transform: translate(0,0) scale(1); } to { transform: translate(6vmax, 4vmax) scale(1.15); } }
 
         /* ---------- Custom cursor ---------- */
-        #curDot, #curRing { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none; border-radius: 50%; opacity: 0; }
+        #curDot, #curRing { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none; border-radius: 50%; opacity: 0; will-change: transform; transform: translate3d(-100px, -100px, 0); }
         #curDot { width: 7px; height: 7px; background: var(--gold); }
-        #curRing { width: 36px; height: 36px; border: 2px solid rgba(233,69,96,.8); transition: width .2s, height .2s, background .2s, border-color .2s; }
+        #curRing { width: 36px; height: 36px; border: 2px solid rgba(233,69,96,.8); transition: background .2s, border-color .2s; }
         body.cursor-on #curDot, body.cursor-on #curRing { opacity: 1; }
-        body.cursor-hover #curRing { width: 54px; height: 54px; background: rgba(233,69,96,.15); border-color: var(--gold); }
+        body.cursor-hover #curRing { background: rgba(233,69,96,.15); border-color: var(--gold); }
         @media (pointer: fine) { body.cursor-on, body.cursor-on a, body.cursor-on button { cursor: none; } }
 
         /* ---------- Scroll progress ---------- */
@@ -55,7 +55,7 @@
             position: fixed; top: 3px; left: 0; right: 0; z-index: 90;
             height: var(--header-h);
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 5vw;
+            padding: 0 clamp(20px, 4vw, 56px);
             background: rgba(13, 13, 24, 0.6);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
@@ -117,7 +117,7 @@
             background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 40%), rgba(255,203,5,.10), transparent 70%);
             pointer-events: none;
         }
-        .hero-inner { position: relative; z-index: 3; padding: calc(var(--header-h) + 40px) 5vw 90px; will-change: transform; }
+        .hero-inner { position: relative; z-index: 3; padding: calc(var(--header-h) + 40px) clamp(20px, 4vw, 56px) 90px; will-change: transform; }
         .hero-inner > * { animation: introUp .9s cubic-bezier(.2,.9,.3,1.15) both; }
         .hero-inner > *:nth-child(1) { animation-delay: .15s; }
         .hero-inner > *:nth-child(2) { animation-delay: .3s; }
@@ -134,7 +134,7 @@
             background-size: 200% 100%; animation: shine 6s linear infinite;
         }
         @keyframes shine { to { background-position: 200% 0; } }
-        .hero p { color: var(--muted); font-size: clamp(1.05rem, 2.5vw, 1.35rem); max-width: 640px; margin: 16px auto 34px; }
+        .hero p { color: var(--muted); font-size: clamp(1.05rem, 2.5vw, 1.35rem); max-width: 760px; margin: 16px auto 34px; }
         .hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
         .ball {
             position: absolute; z-index: 1; opacity: .16;
@@ -173,8 +173,8 @@
         @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         /* ---------- Sections ---------- */
-        section { padding: 84px 5vw; max-width: 1100px; margin: 0 auto; }
-        h2 { font-size: clamp(1.7rem, 4vw, 2.2rem); font-weight: 900; margin-bottom: 8px; text-align: center; }
+        section { padding: 90px clamp(20px, 4vw, 56px); max-width: 1400px; margin: 0 auto; }
+        h2 { font-size: clamp(1.7rem, 4vw, 2.5rem); font-weight: 900; margin-bottom: 8px; text-align: center; }
         h2 i { color: var(--red); transition: transform .3s; display: inline-block; }
         h2:hover i { transform: rotate(-14deg) scale(1.15); }
         .section-sub { text-align: center; color: var(--muted); margin-bottom: 36px; font-size: 1.05rem; }
@@ -225,7 +225,7 @@
             background: linear-gradient(160deg, #1b1b32, #12121f);
             border: 1px solid rgba(255,255,255,.08);
             border-radius: 20px; padding: 34px clamp(18px, 4vw, 44px);
-            display: grid; grid-template-columns: minmax(180px, 300px) 1fr; gap: 30px; align-items: center;
+            display: grid; grid-template-columns: minmax(200px, 340px) 1fr; gap: 30px; align-items: center;
             box-shadow: 0 24px 60px rgba(0,0,0,.45);
             transition: border-color .4s, box-shadow .4s;
         }
@@ -292,7 +292,7 @@
         .quiz-sprite.revealed img { animation: pop .5s cubic-bezier(.2,.9,.3,1.4); }
         .quiz-score { display: flex; gap: 14px; justify-content: center; margin-bottom: 18px; font-weight: 800; color: var(--muted); }
         .quiz-score b { color: var(--gold); }
-        .quiz-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; max-width: 720px; margin: 0 auto; }
+        .quiz-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; max-width: 960px; margin: 0 auto; }
         .quiz-opt {
             position: relative; overflow: hidden;
             background: rgba(255,255,255,.06); color: var(--text);
@@ -319,7 +319,7 @@
         .reveal.in { opacity: 1; transform: none; }
 
         /* ---------- Footer / to-top ---------- */
-        footer { border-top: 1px solid rgba(255,255,255,.07); padding: 34px 5vw; text-align: center; color: var(--muted); font-size: .92rem; }
+        footer { border-top: 1px solid rgba(255,255,255,.07); padding: 44px clamp(20px, 4vw, 56px) 72px; text-align: center; color: var(--muted); font-size: .92rem; }
         footer a { color: var(--muted); text-decoration: underline; transition: color .2s; }
         footer a:hover { color: var(--text); }
         footer .brand-mini { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; font-weight: 800; color: var(--text); font-size: 1.05rem; }
@@ -342,22 +342,22 @@
         .confetti { position: fixed; z-index: 9998; width: 10px; height: 14px; top: -20px; pointer-events: none; animation: fall linear forwards; }
         @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: .2; } }
         #konamiToast {
-            position: fixed; left: 50%; bottom: 40px; transform: translate(-50%, 140%);
+            position: fixed; left: 50%; bottom: 40px; transform: translate(-50%, 50px); opacity: 0; pointer-events: none;
             z-index: 9997; background: linear-gradient(90deg, var(--red), var(--gold)); color: #111;
             font-weight: 900; padding: 14px 28px; border-radius: 999px;
-            box-shadow: 0 14px 40px rgba(0,0,0,.5); transition: transform .5s cubic-bezier(.2,.9,.3,1.4);
+            box-shadow: 0 14px 40px rgba(0,0,0,.5); transition: transform .5s cubic-bezier(.2,.9,.3,1.4), opacity .4s;
         }
-        #konamiToast.on { transform: translate(-50%, 0); }
+        #konamiToast.on { transform: translate(-50%, 0); opacity: 1; }
 
         /* ---------- Toast ---------- */
         #toast {
-            position: fixed; left: 50%; top: 90px; transform: translate(-50%, -200%);
+            position: fixed; left: 50%; top: 90px; transform: translate(-50%, -50px); opacity: 0; pointer-events: none;
             z-index: 9997; background: var(--bg-soft); color: var(--text);
             border: 1px solid rgba(255,255,255,.15);
             font-weight: 700; padding: 12px 24px; border-radius: 999px;
-            transition: transform .45s cubic-bezier(.2,.9,.3,1.4); box-shadow: 0 14px 40px rgba(0,0,0,.5);
+            transition: transform .45s cubic-bezier(.2,.9,.3,1.4), opacity .35s; box-shadow: 0 14px 40px rgba(0,0,0,.5);
         }
-        #toast.on { transform: translate(-50%, 0); }
+        #toast.on { transform: translate(-50%, 0); opacity: 1; }
 
         @media (max-width: 760px) {
             nav a:not(.nav-cta) { display: none; }
@@ -589,6 +589,9 @@
         bar.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
         header.classList.toggle('scrolled', y > 30);
         toTop.classList.toggle('on', y > 500);
+        if (navLinks && y < window.innerHeight * 0.5) {
+            Object.keys(navLinks).forEach(function (k) { navLinks[k].classList.remove('active'); });
+        }
         if (!reduce) {
             if (hero && y < window.innerHeight) hero.style.transform = 'translateY(' + y * 0.22 + 'px)';
             balls.forEach(function (b, i) {
@@ -603,19 +606,22 @@
     /* ================= Custom cursor ================= */
     if (window.matchMedia('(pointer: fine)').matches && !reduce) {
         var dot = document.getElementById('curDot'), ring = document.getElementById('curRing');
-        var mx = -100, my = -100, rx = -100, ry = -100, curOn = false;
+        var mx = -100, my = -100, rx = -100, ry = -100, sc = 1, tSc = 1, curOn = false;
         document.addEventListener('mousemove', function (e) {
             mx = e.clientX; my = e.clientY;
             if (!curOn) { curOn = true; document.body.classList.add('cursor-on'); rx = mx; ry = my; }
-            dot.style.transform = 'translate(' + (mx - 3.5) + 'px,' + (my - 3.5) + 'px)';
         });
         (function loop() {
-            rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16;
-            ring.style.transform = 'translate(' + (rx - 18) + 'px,' + (ry - 18) + 'px)';
+            rx += (mx - rx) * 0.4; ry += (my - ry) * 0.4;
+            sc += (tSc - sc) * 0.25;
+            dot.style.transform = 'translate3d(' + (mx - 3.5) + 'px,' + (my - 3.5) + 'px,0)';
+            ring.style.transform = 'translate3d(' + (rx - 18) + 'px,' + (ry - 18) + 'px,0) scale(' + sc + ')';
             requestAnimationFrame(loop);
         })();
         document.addEventListener('mouseover', function (e) {
-            document.body.classList.toggle('cursor-hover', !!e.target.closest('a,button,[data-tilt]'));
+            var h = !!e.target.closest('a,button,[data-tilt]');
+            document.body.classList.toggle('cursor-hover', h);
+            tSc = h ? 1.5 : 1;
         });
     }
 
