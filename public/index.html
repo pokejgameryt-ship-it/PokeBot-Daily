@@ -3,38 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PokeJGamer</title>
+    <title>PokeJGamer — Pokémon en YouTube y Twitch</title>
+    <meta name="description" content="Canal de Pokémon de PokeJGamer: nuzlockes, torneos y directos en YouTube y Twitch. Sígueme en todas las redes y únete a la comunidad de Discord.">
+    <link rel="canonical" href="https://pokejgamer.com/">
+    <meta property="og:title" content="PokeJGamer — Pokémon en YouTube y Twitch">
+    <meta property="og:description" content="Nuzlockes, torneos y directos de Pokémon. Mírame en YouTube y Twitch.">
+    <meta property="og:url" content="https://pokejgamer.com/">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23fff' stroke='%23111' stroke-width='6'/%3E%3Cpath d='M2 50a48 48 0 0 1 96 0z' fill='%23e94560'/%3E%3Cpath d='M2 50h96' stroke='%23111' stroke-width='8'/%3E%3Ccircle cx='50' cy='50' r='18' fill='%23fff' stroke='%23111' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23ddd'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .container { text-align: center; padding: 40px; }
-        .logo { font-size: 80px; margin-bottom: 20px; }
-        h1 { font-size: 2.5em; margin-bottom: 10px; }
-        h1 span { color: #e94560; }
-        p { font-size: 1.2em; color: #aaa; margin-bottom: 30px; }
-        .links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-        .links a { display: inline-block; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: transform 0.2s; }
-        .links a:hover { transform: scale(1.05); }
-        .yt { background: #e94560; color: #fff; }
-        .tw { background: #9146FF; color: #fff; }
-        .dc { background: #5865F2; color: #fff; }
-        footer { margin-top: 40px; color: #555; font-size: 0.9em; }
-        footer a { color: #888; }
+        :root {
+            --bg: #0d0d18;
+            --bg-soft: #16162a;
+            --red: #e94560;
+            --gold: #ffcb05;
+            --text: #f2f2f7;
+            --muted: #a0a0b8;
+        }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Outfit', 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+        header {
+            position: sticky; top: 0; z-index: 50;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 5vw;
+            background: rgba(13, 13, 24, 0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; color: var(--text); text-decoration: none; }
+        .brand span { color: var(--red); }
+        nav { display: flex; align-items: center; gap: 22px; }
+        nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: color 0.2s; }
+        nav a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--red); color: #fff !important;
+            padding: 9px 18px; border-radius: 8px;
+        }
+        .nav-cta:hover { filter: brightness(1.1); }
+        .nav-links { display: flex; gap: 22px; align-items: center; }
+
+        .hero {
+            text-align: center;
+            padding: 90px 5vw 70px;
+            background:
+                radial-gradient(ellipse 60% 50% at 50% -10%, rgba(233, 69, 96, 0.25), transparent),
+                radial-gradient(ellipse 40% 40% at 80% 20%, rgba(255, 203, 5, 0.08), transparent);
+        }
+        .hero .pokeball { font-size: 64px; margin-bottom: 18px; }
+        .hero h1 {
+            font-size: clamp(2.6rem, 7vw, 4.5rem);
+            font-weight: 800; letter-spacing: -1px;
+            background: linear-gradient(90deg, var(--red), var(--gold));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .hero p { color: var(--muted); font-size: clamp(1.05rem, 2.5vw, 1.3rem); max-width: 640px; margin: 16px auto 34px; }
+        .hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 30px; border-radius: 10px;
+            font-weight: 700; font-size: 1.05rem;
+            text-decoration: none; color: #fff;
+            transition: transform 0.15s, filter 0.15s;
+        }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn-yt { background: var(--red); }
+        .btn-tw { background: #9146FF; }
+
+        section { padding: 60px 5vw; max-width: 1100px; margin: 0 auto; }
+        h2 { font-size: 1.9rem; font-weight: 800; margin-bottom: 8px; text-align: center; }
+        h2 i { color: var(--red); }
+        .section-sub { text-align: center; color: var(--muted); margin-bottom: 34px; }
+
+        .video-wrap {
+            position: relative; width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 14px; overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        }
+        .video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+        }
+        .social-card {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 26px 16px; border-radius: 14px;
+            background: var(--bg-soft);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            text-decoration: none; color: var(--text);
+            transition: transform 0.15s, border-color 0.15s;
+        }
+        .social-card:hover { transform: translateY(-4px); border-color: rgba(255, 255, 255, 0.2); }
+        .social-card i { font-size: 2.1rem; }
+        .social-card .name { font-weight: 700; font-size: 1.05rem; }
+        .social-card .handle { color: var(--muted); font-size: 0.88rem; }
+        .c-yt i { color: #ff0033; }
+        .c-tw i { color: #9146FF; }
+        .c-tt i { color: #fff; }
+        .c-x i { color: #fff; }
+        .c-dc i { color: #5865F2; }
+
+        .why {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        .why-card {
+            background: var(--bg-soft); border-radius: 14px;
+            padding: 24px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .why-card i { font-size: 1.6rem; color: var(--gold); margin-bottom: 12px; }
+        .why-card h3 { font-size: 1.1rem; margin-bottom: 6px; }
+        .why-card p { color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+
+        footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 30px 5vw; text-align: center;
+            color: var(--muted); font-size: 0.92rem;
+        }
+        footer a { color: var(--muted); text-decoration: underline; }
+        footer a:hover { color: var(--text); }
+        footer .brand-mini { display: block; margin-bottom: 8px; font-weight: 700; color: var(--text); }
+
+        @media (max-width: 640px) {
+            .nav-links a:not(.nav-cta) { display: none; }
+            .hero { padding: 60px 5vw 50px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">🎮</div>
-        <h1>Poke<span>JGamer</span></h1>
-        <p>Canal de Pokémon en YouTube y Twitch</p>
-        <div class="links">
-            <a href="https://youtube.com/@pokejgamer" class="yt">YouTube</a>
-            <a href="https://twitch.tv/pokejgamer" class="tw">Twitch</a>
-            <a href="https://discord.gg/pokejgamer" class="dc">Discord</a>
+
+    <header>
+        <a class="brand" href="/">🎮 Poke<span>JGamer</span></a>
+        <nav>
+            <div class="nav-links">
+                <a href="#videos">Vídeos</a>
+                <a href="#redes">Redes</a>
+                <a href="https://youtube.com/@pokejgamer" class="nav-cta">Suscríbete</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="hero">
+        <div class="pokeball">🎮</div>
+        <h1>PokeJGamer</h1>
+        <p>Nuzlockes, torneos y directos de Pokémon. Mírame en YouTube, en Twitch y únete a la comunidad.</p>
+        <div class="hero-ctas">
+            <a href="https://youtube.com/@pokejgamer" class="btn btn-yt"><i class="fa-brands fa-youtube"></i> Suscríbete</a>
+            <a href="https://twitch.tv/pokejgamer" class="btn btn-tw"><i class="fa-brands fa-twitch"></i> Ver en directo</a>
         </div>
-        <footer>
-            <a href="/privacy">Política de Privacidad</a> · <a href="/terms">Términos de Servicio</a>
-        </footer>
     </div>
+
+    <section id="videos">
+        <h2><i class="fa-solid fa-play"></i> Últimos vídeos</h2>
+        <p class="section-sub">Lo más reciente del canal, directamente aquí.</p>
+        <div class="video-wrap">
+            <iframe
+                src="https://www.youtube.com/embed/videoseries?list=UUY-yUwAx1C0ApRHWKdo8o0Q"
+                title="Últimos vídeos de PokeJGamer"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen loading="lazy"></iframe>
+        </div>
+    </section>
+
+    <section id="redes">
+        <h2><i class="fa-solid fa-heart"></i> Sígueme en todas las redes</h2>
+        <p class="section-sub">Elige tu plataforma favorita.</p>
+        <div class="social-grid">
+            <a class="social-card c-yt" href="https://youtube.com/@pokejgamer">
+                <i class="fa-brands fa-youtube"></i>
+                <span class="name">YouTube</span>
+                <span class="handle">@pokejgamer</span>
+            </a>
+            <a class="social-card c-tw" href="https://twitch.tv/pokejgamer">
+                <i class="fa-brands fa-twitch"></i>
+                <span class="name">Twitch</span>
+                <span class="handle">pokejgamer</span>
+            </a>
+            <a class="social-card c-tt" href="https://www.tiktok.com/@pokejgamer">
+                <i class="fa-brands fa-tiktok"></i>
+                <span class="name">TikTok</span>
+                <span class="handle">@pokejgamer</span>
+            </a>
+            <a class="social-card c-x" href="https://x.com/p0kejgamer">
+                <i class="fa-brands fa-x-twitter"></i>
+                <span class="name">X</span>
+                <span class="handle">@p0kejgamer</span>
+            </a>
+            <a class="social-card c-dc" href="https://discord.gg/pokejgamer">
+                <i class="fa-brands fa-discord"></i>
+                <span class="name">Discord</span>
+                <span class="handle">Únete a la comunidad</span>
+            </a>
+        </div>
+    </section>
+
+    <section>
+        <h2><i class="fa-solid fa-star"></i> ¿Por qué suscribirte?</h2>
+        <p class="section-sub">Todo lo que pasa en el canal, en un solo lugar.</p>
+        <div class="why">
+            <div class="why-card">
+                <i class="fa-solid fa-dice-d20"></i>
+                <h3>Nuzlockes épicos</h3>
+                <p>Retos Pokémon con reglas duras, momentos épicos y finales que no te esperas.</p>
+            </div>
+            <div class="why-card">
+                <i class="fa-solid fa-trophy"></i>
+                <h3>Torneos y competición</h3>
+                <p>Batallas, torneos y eventos en directo con la comunidad.</p>
+            </div>
+            <div class="why-card">
+                <i class="fa-solid fa-video"></i>
+                <h3>Directos en Twitch</h3>
+                <p>En directo jugando, comentando y charlando con todos.</p>
+            </div>
+            <div class="why-card">
+                <i class="fa-brands fa-discord"></i>
+                <h3>Comunidad Discord</h3>
+                <p>Habla conmigo y con el resto: avisos, sorteos y juegos en común.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <span class="brand-mini">🎮 PokeJGamer</span>
+        <a href="/privacy.html">Política de Privacidad</a> · <a href="/terms.html">Términos de Servicio</a>
+        <div style="margin-top: 8px;">© 2026 PokeJGamer</div>
+    </footer>
+
 </body>
 </html>
