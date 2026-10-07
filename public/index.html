@@ -64,7 +64,7 @@
             animation: introDown .7s cubic-bezier(.2,.9,.3,1.2) both;
         }
         @keyframes introDown { from { transform: translateY(-100%); } to { transform: none; } }
-        header.scrolled { background: rgba(13, 13, 24, 0.95); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); }
+        header.scrolled { background: rgba(13, 13, 24, 0.95); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); backdrop-filter: none; -webkit-backdrop-filter: none; }
         .brand { display: flex; align-items: center; text-decoration: none; color: var(--text); font-weight: 900; font-size: 1.2rem; }
         .brand img { width: 38px; height: 38px; border-radius: 50%; margin-right: 10px; object-fit: cover; background: #fff; transition: transform .3s; }
         .brand:hover img { transform: rotate(-15deg) scale(1.08); }
@@ -111,11 +111,12 @@
                 url('https://yt3.googleusercontent.com/SeTOQBFT0ds8dMUbbUdr6wZkJBOhoWJXjhDWhw-HrwFju64jq2LVsoAhIA65JV-Qpmq2tLAQdA=w1920') center/cover no-repeat,
                 var(--bg);
         }
-        .hero::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 40%), rgba(255,203,5,.10), transparent 70%);
-            pointer-events: none;
+        .hero-spot {
+            position: absolute; top: 0; left: 0; width: 640px; height: 640px;
+            border-radius: 50%; pointer-events: none; z-index: 2;
+            background: radial-gradient(circle, rgba(255,203,5,.10), transparent 70%);
+            will-change: transform; opacity: 0; transition: opacity .35s;
+            transform: translate3d(-1000px, -1000px, 0);
         }
         .hero-inner { position: relative; z-index: 3; padding: calc(var(--header-h) + 40px) clamp(20px, 4vw, 56px) 90px; will-change: transform; }
         .hero-inner > * { animation: introUp .9s cubic-bezier(.2,.9,.3,1.15) both; }
@@ -400,6 +401,7 @@
 </header>
 
 <div class="hero" id="hero">
+    <div class="hero-spot" id="heroSpot"></div>
     <div class="ball b1"></div>
     <div class="ball b2"></div>
     <div class="ball b3"></div>
@@ -625,13 +627,23 @@
         });
     }
 
-    /* ================= Hero spotlight ================= */
+    /* ================= Hero spotlight (transform-only, no repaint) ================= */
     if (!reduce && window.matchMedia('(pointer: fine)').matches) {
-        document.getElementById('hero').addEventListener('mousemove', function (e) {
-            var r = this.getBoundingClientRect();
-            this.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
-            this.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+        var heroEl = document.getElementById('hero');
+        var spot = document.getElementById('heroSpot');
+        var sx = -1000, sy = -1000, spotRaf = false;
+        function setSpot() {
+            spotRaf = false;
+            spot.style.transform = 'translate3d(' + (sx - 320) + 'px,' + (sy - 320) + 'px,0)';
+        }
+        heroEl.addEventListener('mousemove', function (e) {
+            var r = heroEl.getBoundingClientRect();
+            sx = e.clientX - r.left;
+            sy = e.clientY - r.top;
+            if (spot.style.opacity !== '1') spot.style.opacity = '1';
+            if (!spotRaf) { spotRaf = true; requestAnimationFrame(setSpot); }
         });
+        heroEl.addEventListener('mouseleave', function () { spot.style.opacity = '0'; });
     }
 
     /* ================= Reveal + active nav ================= */
